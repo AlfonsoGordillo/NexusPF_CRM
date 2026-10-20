@@ -342,6 +342,7 @@ window.filterKanbanByOwner = function (ownerFilter) {
   state.kanbanOwnerFilter = ownerFilter || "ALL";
   renderKanbanView();
 };
+window.setKanbanOwnerFilter = window.filterKanbanByOwner;
 
 function populateKanbanOwnerFilter() {
   const sel = document.getElementById("kanban-owner-filter");
@@ -416,6 +417,8 @@ window.resetWhatIfSimulation = function () {
   renderKanbanView();
   showToast("↺ Simulación What-If restaurada a los valores reales de PostgreSQL.");
 };
+window.toggleKanbanWhatIfMode = window.toggleWhatIfMode;
+window.resetKanbanWhatIf = window.resetWhatIfSimulation;
 
 // Point 3.2: 1-Click Flip Venta / Renta directly on Kanban Card
 window.flipDealModality = async function (dealId) {
@@ -1023,8 +1026,8 @@ const newDealModal = document.getElementById("new-deal-modal");
 window.openNewDealModal = function (defaultStage = "DISCOVERY") {
   if (!newDealModal) return;
   const stageSel = document.getElementById("nd-stage");
-  const accSel = document.getElementById("nd-account-id");
-  const prodSel = document.getElementById("nd-product-id");
+  const accSel = document.getElementById("nd-account") || document.getElementById("nd-account-id");
+  const prodSel = document.getElementById("nd-product") || document.getElementById("nd-product-id");
 
   if (stageSel) stageSel.value = defaultStage || "DISCOVERY";
   if (accSel) {
@@ -1044,19 +1047,24 @@ window.openNewDealModal = function (defaultStage = "DISCOVERY") {
       )
       .join("");
   }
-  document.getElementById("nd-title").value = "";
+  const titleEl = document.getElementById("nd-title");
+  if (titleEl) titleEl.value = "";
   syncNewDealProductDefaults();
   newDealModal.classList.add("open");
 };
 
 window.syncNewDealProductDefaults = function () {
-  const prodSel = document.getElementById("nd-product-id");
+  const prodSel = document.getElementById("nd-product") || document.getElementById("nd-product-id");
   if (!prodSel || !prodSel.selectedOptions[0]) return;
   const opt = prodSel.selectedOptions[0];
-  document.getElementById("nd-mrr").value = Math.round(Number(opt.dataset.mrr || 2400));
-  document.getElementById("nd-buyout").value = Math.round(Number(opt.dataset.buyout || 54000));
-  document.getElementById("nd-setup").value = Math.round(Number(opt.dataset.setup || 4500));
-  document.getElementById("nd-infra").value = Math.round(Number(opt.dataset.infra || 320));
+  const mrrEl = document.getElementById("nd-mrr");
+  const buyoutEl = document.getElementById("nd-buyout");
+  const setupEl = document.getElementById("nd-setup");
+  const infraEl = document.getElementById("nd-infra");
+  if (mrrEl) mrrEl.value = Math.round(Number(opt.dataset.mrr || 950));
+  if (buyoutEl) buyoutEl.value = Math.round(Number(opt.dataset.buyout || 21000));
+  if (setupEl) setupEl.value = Math.round(Number(opt.dataset.setup || 2200));
+  if (infraEl) infraEl.value = Math.round(Number(opt.dataset.infra || 75));
 };
 
 window.closeNewDealModal = function () {
@@ -1064,15 +1072,17 @@ window.closeNewDealModal = function () {
 };
 
 window.saveNewDealKanban = async function () {
-  const title = document.getElementById("nd-title").value.trim();
-  const stage = document.getElementById("nd-stage").value;
-  const account_id = Number(document.getElementById("nd-account-id").value);
-  const product_id = Number(document.getElementById("nd-product-id").value);
-  const modality = document.getElementById("nd-modality").value;
-  const mrr_usd = Number(document.getElementById("nd-mrr").value || 2200);
-  const buyout_base_usd = Number(document.getElementById("nd-buyout").value || 52000);
-  const setup_fee_usd = Number(document.getElementById("nd-setup").value || 4500);
-  const infra_cost_monthly_usd = Number(document.getElementById("nd-infra").value || 320);
+  const title = (document.getElementById("nd-title")?.value || "").trim();
+  const stage = document.getElementById("nd-stage")?.value || "DISCOVERY";
+  const accSel = document.getElementById("nd-account") || document.getElementById("nd-account-id");
+  const prodSel = document.getElementById("nd-product") || document.getElementById("nd-product-id");
+  const account_id = Number(accSel?.value || 1);
+  const product_id = Number(prodSel?.value || 1);
+  const modality = document.getElementById("nd-modality")?.value || "RENTA_MRR";
+  const mrr_usd = Number(document.getElementById("nd-mrr")?.value || 950);
+  const buyout_base_usd = Number(document.getElementById("nd-buyout")?.value || 21000);
+  const setup_fee_usd = Number(document.getElementById("nd-setup")?.value || 2200);
+  const infra_cost_monthly_usd = Number(document.getElementById("nd-infra")?.value || 75);
 
   if (!title) {
     showToast("⚠️ Ingresa el título de la oportunidad comercial.");
@@ -1183,7 +1193,8 @@ function renderAuthUserUI() {
     document.getElementById("st-responsible-role").value = u.role;
   }
 
-  const quickGrid = document.getElementById("gate-quick-users-list");
+  const quickGrid =
+    document.getElementById("login-gate-quick-profiles") || document.getElementById("gate-quick-users-list");
   if (quickGrid && state.users.length > 0) {
     quickGrid.innerHTML = state.users
       .map((usr) => {
@@ -1216,40 +1227,40 @@ window.openLoginScreenGate = function (tab = "login") {
   if (!loginGate) return;
   renderAuthUserUI();
   switchLoginGateTab(tab);
+  loginGate.classList.add("open");
   loginGate.style.display = "flex";
 };
 
 window.closeLoginScreenGate = function () {
   sessionStorage.setItem("nexuspf_gate_authenticated", "1");
-  if (loginGate) loginGate.style.display = "none";
+  if (loginGate) {
+    loginGate.classList.remove("open");
+    loginGate.style.display = "none";
+  }
 };
 
 window.switchLoginGateTab = function (tab) {
-  const formLogin = document.getElementById("gate-form-login");
-  const formReg = document.getElementById("gate-form-register");
+  const formLogin =
+    document.getElementById("login-gate-form-login") || document.getElementById("gate-form-login");
+  const formReg =
+    document.getElementById("login-gate-form-register") || document.getElementById("gate-form-register");
   const tabLogin = document.getElementById("tab-btn-login");
   const tabReg = document.getElementById("tab-btn-register");
-  const errBox = document.getElementById("gate-auth-error");
-  if (errBox) errBox.style.display = "none";
+  const errLogin = document.getElementById("lg-login-error");
+  const errReg = document.getElementById("lg-reg-error");
+  if (errLogin) errLogin.style.display = "none";
+  if (errReg) errReg.style.display = "none";
 
   if (tab === "register") {
     if (formLogin) formLogin.style.display = "none";
     if (formReg) formReg.style.display = "block";
-    if (tabReg) {
-      tabReg.className = "btn btn-primary";
-    }
-    if (tabLogin) {
-      tabLogin.className = "btn";
-    }
+    if (tabReg) tabReg.className = "btn btn-emerald";
+    if (tabLogin) tabLogin.className = "btn";
   } else {
     if (formLogin) formLogin.style.display = "block";
     if (formReg) formReg.style.display = "none";
-    if (tabLogin) {
-      tabLogin.className = "btn btn-primary";
-    }
-    if (tabReg) {
-      tabReg.className = "btn";
-    }
+    if (tabLogin) tabLogin.className = "btn btn-emerald";
+    if (tabReg) tabReg.className = "btn";
   }
 };
 
@@ -1259,8 +1270,10 @@ window.togglePasswordVisibility = function (inputId) {
   el.type = el.type === "password" ? "text" : "password";
 };
 
-function showGateError(msg) {
-  const errBox = document.getElementById("gate-auth-error");
+function showGateError(msg, isReg = false) {
+  const errBox = isReg
+    ? document.getElementById("lg-reg-error") || document.getElementById("lg-login-error")
+    : document.getElementById("lg-login-error") || document.getElementById("gate-auth-error");
   if (!errBox) {
     showToast(`⚠️ ${msg}`);
     return;
@@ -1270,73 +1283,108 @@ function showGateError(msg) {
 }
 
 window.submitGateLogin = async function () {
-  const identifier = document.getElementById("gate-login-identifier").value.trim();
-  const password = document.getElementById("gate-login-password").value;
+  const idEl =
+    document.getElementById("lg-login-identifier") || document.getElementById("gate-login-identifier");
+  const pwEl =
+    document.getElementById("lg-login-password") || document.getElementById("gate-login-password");
+  const identifier = (idEl?.value || "").trim();
+  const password = pwEl?.value || "nexus2026";
 
   if (!identifier) {
-    showGateError("Ingresa tu usuario (ej. alfonso) o correo corporativo.");
+    showGateError("Ingresa tu usuario (ej. alfonso) o correo corporativo.", false);
     return;
   }
 
-  const res = await fetch("/api/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ identifier, password, isRegister: false }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    showGateError(data.error || "Credenciales inválidas");
-    return;
-  }
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier, password, isRegister: false }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showGateError(data.error || "Credenciales inválidas", false);
+      return;
+    }
 
-  state.currentUser = data.user;
-  localStorage.setItem("nexuspf_auth_user", JSON.stringify(data.user));
-  await loadDashboard();
-  closeLoginScreenGate();
-  showToast(`🔐 Bienvenido ${data.user.name} (${data.user.role}).`);
+    state.currentUser = data.user;
+    localStorage.setItem("nexuspf_auth_user", JSON.stringify(data.user));
+    closeLoginScreenGate();
+    await loadDashboard();
+    showToast(`🔐 Bienvenido ${data.user.name} (${data.user.role}).`);
+  } catch (err) {
+    showGateError(`Error de red al iniciar sesión: ${err.message}`, false);
+  }
 };
 
 window.submitGateRegister = async function () {
-  const name = document.getElementById("gate-reg-name").value.trim();
-  const username = document.getElementById("gate-reg-username").value.trim();
-  const email = document.getElementById("gate-reg-email").value.trim();
-  const password = document.getElementById("gate-reg-password").value;
-  const role_code = document.getElementById("gate-reg-role-code").value;
-  const brand_focus = document.getElementById("gate-reg-brand").value;
+  const nameEl = document.getElementById("lg-reg-name") || document.getElementById("gate-reg-name");
+  const userEl = document.getElementById("lg-reg-username") || document.getElementById("gate-reg-username");
+  const emailEl = document.getElementById("lg-reg-email") || document.getElementById("gate-reg-email");
+  const pwEl = document.getElementById("lg-reg-password") || document.getElementById("gate-reg-password");
+  const roleCodeEl = document.getElementById("lg-reg-role-code") || document.getElementById("gate-reg-role-code");
+  const roleTitleEl = document.getElementById("lg-reg-role-title");
+  const brandEl = document.getElementById("lg-reg-brand") || document.getElementById("gate-reg-brand");
+
+  const name = (nameEl?.value || "").trim();
+  const username = (userEl?.value || "").trim();
+  const email = (emailEl?.value || "").trim();
+  const password = pwEl?.value || "nexus2026";
+  const role_code = roleCodeEl?.value || "SALES_EXECUTIVE";
+  const role = (roleTitleEl?.value || "").trim();
+  const brand_focus = brandEl?.value || "projectsfactory.io & finanactionable.co";
 
   if (!name || !email) {
-    showGateError("Completa tu nombre completo y correo corporativo para registrarte.");
+    showGateError("Completa tu nombre completo y correo corporativo para registrarte.", true);
     return;
   }
 
-  const res = await fetch("/api/auth/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      isRegister: true,
-      name,
-      username,
-      email,
-      password: password || "nexus2026",
-      role_code,
-      brand_focus,
-    }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    showGateError(data.error || "No se pudo registrar el miembro.");
-    return;
-  }
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        isRegister: true,
+        name,
+        username,
+        email,
+        password: password || "nexus2026",
+        role_code,
+        role,
+        brand_focus,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showGateError(data.error || "No se pudo registrar el miembro.", true);
+      return;
+    }
 
-  state.currentUser = data.user;
-  localStorage.setItem("nexuspf_auth_user", JSON.stringify(data.user));
-  document.getElementById("gate-reg-name").value = "";
-  document.getElementById("gate-reg-username").value = "";
-  document.getElementById("gate-reg-email").value = "";
-  await loadDashboard();
-  closeLoginScreenGate();
-  showToast(`✨ Cuenta creada y sesión iniciada como ${data.user.name} (${data.user.role}).`);
+    state.currentUser = data.user;
+    localStorage.setItem("nexuspf_auth_user", JSON.stringify(data.user));
+    if (nameEl) nameEl.value = "";
+    if (userEl) userEl.value = "";
+    if (emailEl) emailEl.value = "";
+    closeLoginScreenGate();
+    await loadDashboard();
+    showToast(`✨ Cuenta creada y sesión iniciada como ${data.user.name} (${data.user.role}).`);
+  } catch (err) {
+    showGateError(`Error al registrar: ${err.message}`, true);
+  }
 };
+
+// Support pressing Enter in Login inputs
+["lg-login-identifier", "lg-login-password"].forEach((id) => {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        window.submitGateLogin();
+      }
+    });
+  }
+});
 
 window.switchActiveExecutive = async function (userId) {
   const found = state.users.find((u) => Number(u.id) === Number(userId));
@@ -1344,24 +1392,23 @@ window.switchActiveExecutive = async function (userId) {
   const res = await fetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ identifier: found.email, password: found.password_hash || "nexus2026" }),
+    body: JSON.stringify({ identifier: found.email, password: found.access_pin || "nexus2026" }),
   });
   const data = await res.json();
   if (res.ok && data.user) {
     state.currentUser = data.user;
     localStorage.setItem("nexuspf_auth_user", JSON.stringify(data.user));
+    closeLoginScreenGate();
     renderAuthUserUI();
     populateKanbanOwnerFilter();
     renderKanbanView();
     renderTeamUsersView();
-    closeLoginScreenGate();
     showToast(`🔐 Sesión cambiada a: ${data.user.name} (${data.user.role}).`);
   }
 };
 
 // View 6: Team Members & 6 RBAC Profiles CRUD
 function renderTeamUsersView() {
-  const profilesGrid = document.getElementById("rbac-profiles-grid");
   const tbody = document.getElementById("team-users-tbody");
 
   const defaultProfiles = {
@@ -1370,77 +1417,40 @@ function renderTeamUsersView() {
       label: "CEO / Super Administrador",
       department: "Dirección Ejecutiva",
       badgeColor: "#10b981",
-      description: "Control total de arquitectura, catálogo IP, precios Buyout/Renta, CRUD de usuarios y gobernanza global.",
-      permissions: ["ALL_ACCESS", "USERS_CRUD", "CATALOG_CRUD", "KANBAN_MOVE", "PRICE_OVERRIDE", "AUDIT_EXPORT"],
     },
     FINANCE_STRATEGIST: {
       code: "FINANCE_STRATEGIST",
       label: "Estratega Financiero (CFO / FinActionable)",
       department: "Finanzas & Pricing",
       badgeColor: "#f59e0b",
-      description: "Aprueba múltiplos de Buyout CapEx, descuentos de MRR, márgenes de infraestructura y proyecciones LTV.",
-      permissions: ["CATALOG_CRUD", "KANBAN_MOVE", "PRICE_OVERRIDE", "STUDIO_SIMULATE", "AUDIT_EXPORT"],
     },
     SALES_EXECUTIVE: {
       code: "SALES_EXECUTIVE",
       label: "Ejecutivo Comercial B2B (Account Executive)",
       department: "Revenue & Growth",
       badgeColor: "#38bdf8",
-      description: "Gestiona prospectos en Smart Grid, avanza tratos en Kanban con justificación y ejecuta el Agentic Swarm.",
-      permissions: ["DEALS_CRUD", "KANBAN_MOVE", "SWARM_EXECUTE", "STUDIO_SIMULATE"],
     },
     SOLUTIONS_ARCHITECT: {
       code: "SOLUTIONS_ARCHITECT",
       label: "Arquitecto de Soluciones & Preventa Técnica",
       department: "Ingeniería & Preventa",
       badgeColor: "#a855f7",
-      description: "Lidera Demos Técnicas, dimensiona costos cloud y certifica viabilidad técnica en el Kanban.",
-      permissions: ["CATALOG_CRUD", "KANBAN_MOVE", "TECH_VALIDATION", "STUDIO_SIMULATE"],
     },
     PARTNER_MANAGER: {
       code: "PARTNER_MANAGER",
       label: "Gerente de Alianzas & Canales B2B",
       department: "Alianzas & Canales",
       badgeColor: "#ec4899",
-      description: "Administra cuentas referidas, licenciamiento marca blanca y co-selling regional.",
-      permissions: ["DEALS_CRUD", "KANBAN_MOVE", "STUDIO_SIMULATE"],
     },
     AUDITOR_VIEWER: {
       code: "AUDITOR_VIEWER",
       label: "Auditor / Junta Directiva (Read-Only + Audit)",
       department: "Gobernanza & Compliance",
       badgeColor: "#94a3b8",
-      description: "Inspección de trazabilidad histórica, métricas de ARR/Buyout y cumplimiento sin alterar datos.",
-      permissions: ["READ_ONLY", "AUDIT_EXPORT"],
     },
   };
 
   const rolesMap = Object.keys(state.rolesMeta || {}).length > 0 ? state.rolesMeta : defaultProfiles;
-
-  if (profilesGrid) {
-    profilesGrid.innerHTML = Object.values(rolesMap)
-      .map(
-        (r) => `
-        <div style="padding:14px 16px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border-hairline); border-top:3px solid ${r.badgeColor || "#10b981"};">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:${r.badgeColor || "#10b981"};">${r.code}</span>
-            <span style="font-size:10.5px; color:var(--text-muted);">${r.department || ""}</span>
-          </div>
-          <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:6px;">${r.label}</div>
-          <div style="font-size:12px; color:var(--text-secondary); line-height:1.45; margin-bottom:10px;">${r.description}</div>
-          <div style="display:flex; gap:5px; flex-wrap:wrap;">
-            ${(r.permissions || [])
-              .map(
-                (p) =>
-                  `<span style="font-family:var(--font-mono); font-size:9.5px; padding:2px 6px; border-radius:4px; background:rgba(15,23,42,0.8); color:var(--text-secondary); border:1px solid var(--border-hairline);">${p}</span>`
-              )
-              .join("")}
-          </div>
-        </div>
-      `
-      )
-      .join("");
-  }
 
   if (tbody) {
     tbody.innerHTML = state.users
@@ -1456,13 +1466,12 @@ function renderTeamUsersView() {
                 </div>
                 <div>
                   <div class="cell-company">${u.name} ${isCurrent ? '<span class="badge badge-renta" style="margin-left:4px;">Sesión Activa</span>' : ""}</div>
-                  <div class="cell-sub">${u.role || rMeta.label}</div>
+                  <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan);">@${u.username || u.email.split("@")[0]}</div>
                 </div>
               </div>
             </td>
             <td>
-              <div style="font-family:var(--font-mono); font-size:12px; color:var(--accent-cyan);">@${u.username || u.email.split("@")[0]}</div>
-              <div class="cell-sub">${u.email}</div>
+              <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-primary);">${u.email}</div>
             </td>
             <td>
               <span style="font-family:var(--font-mono); font-size:11px; padding:3px 8px; border-radius:99px; background:rgba(16,185,129,0.12); color:${rMeta.badgeColor || "#10b981"}; border:1px solid ${rMeta.badgeColor || "#10b981"};">
@@ -1470,15 +1479,17 @@ function renderTeamUsersView() {
               </span>
             </td>
             <td>
-              <div style="font-size:12px; color:var(--text-primary);">${u.department || rMeta.department}</div>
-              <div class="cell-sub">${u.brand_focus || "projectsfactory.io & finanactionable.co"}</div>
+              <div style="font-size:12.5px; color:var(--text-primary); font-weight:600;">${u.role || rMeta.label}</div>
             </td>
             <td>
-              <span class="badge ${u.status === "INACTIVO" ? "badge-venta" : "badge-renta"}">${u.status || "ACTIVO"}</span>
+              <div class="cell-sub" style="color:var(--accent-cyan);">${u.brand_focus || "projectsfactory.io & finanactionable.co"}</div>
+            </td>
+            <td>
+              <span class="badge ${u.status === "SUSPENDIDO" ? "badge-venta" : "badge-renta"}">${u.status || "ACTIVO"}</span>
             </td>
             <td>
               <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <button class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="switchActiveExecutive(${u.id})" title="Usar este ejecutivo como sesión activa">🔐 Activar</button>
+                <button class="btn btn-emerald" style="padding:4px 8px; font-size:11px;" onclick="switchActiveExecutive(${u.id})" title="Usar este ejecutivo como sesión activa">🔐 Activar</button>
                 <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="openTeamMemberModal(${u.id})">✏️ Editar</button>
                 <button class="btn" style="padding:4px 8px; font-size:11px; color:var(--accent-rose); border-color:rgba(244,63,94,0.35);" onclick="deleteTeamMemberCrud(${u.id})">🗑️</button>
               </div>
