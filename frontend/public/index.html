@@ -55,6 +55,12 @@
             </button>
           </li>
           <li>
+            <button class="nav-btn" data-view="team">
+              <span>👥 Equipo & Roles RBAC</span>
+              <span class="nav-tag">6 Perfiles</span>
+            </button>
+          </li>
+          <li>
             <button class="nav-btn" data-view="mcp">
               <span>🔌 Servidor MCP & Cloud</span>
               <span class="nav-tag">5 Tools</span>
@@ -83,12 +89,15 @@
           <span class="kbd-shortcut">Ctrl + K</span>
         </div>
         <div class="topbar-actions">
-          <button class="btn" id="auth-user-pill" onclick="openAuthModal()" style="border-color:rgba(16,185,129,0.5); background:rgba(16,185,129,0.08);" title="Cambiar sesión o autenticar ejecutivo responsable">
+          <button class="btn" id="auth-user-pill" onclick="switchView('team')" style="border-color:rgba(16,185,129,0.5); background:rgba(16,185,129,0.08);" title="Ver perfil RBAC y gestionar equipo">
             <span id="auth-avatar-badge" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--accent-emerald); color:#04130d; font-weight:700; font-size:11px;">AG</span>
-            <span id="auth-user-label" style="font-size:12px;">Alfonso Gordillo · <strong style="color:var(--accent-emerald);">Autenticado</strong></span>
+            <span id="auth-user-label" style="font-size:12px;">Alfonso Gordillo · <strong style="color:var(--accent-emerald);">SUPER_ADMIN</strong></span>
           </button>
-          <button class="btn btn-cyan" id="btn-enrich-all">⚡ Enriquecer Todo con Magic AI</button>
-          <button class="btn btn-emerald" id="btn-open-zero-admin">+ Ingesta Zero-Admin</button>
+          <button class="btn" onclick="openLoginScreenGate()" title="Ir a Pantalla Inicial de Login / Cambiar Usuario / Registrarse" style="padding:7px 10px; font-size:11.5px;">
+            🔐 Login / Cambiar Usuario
+          </button>
+          <button class="btn btn-cyan" id="btn-enrich-all">⚡ Magic AI</button>
+          <button class="btn btn-emerald" id="btn-open-zero-admin">+ Zero-Admin</button>
         </div>
       </header>
 
@@ -206,19 +215,29 @@
 
         <!-- VIEW 3: DUAL PIPELINE KANBAN -->
         <section id="view-kanban" class="view-panel">
-          <div class="section-header">
+          <div class="section-header" style="flex-wrap:wrap;">
             <div>
               <h1 class="section-title">Pipeline Dual Kanban: Venta Directa (CapEx) vs. Renta Mensual (MRR / AaaS)</h1>
               <p class="section-desc">
-                <strong>🖐️ Drag & Drop Activo con Auditoría IA:</strong> Arrastra cualquier tarjeta entre las 5 columnas para abrir el acta de transición (Responsable Autenticado, Fecha/Hora y Justificación asistida por IA). Cada columna totaliza Renta y Venta en vivo.
+                <strong>🖐️ Drag & Drop + Termómetro de Envejecimiento + Flip Venta⇄Renta + Modo Simulación What-If:</strong> Arrastra tarjetas entre las 5 columnas o simula cierres trimestrales en vivo.
               </p>
             </div>
-            <div style="display:flex; gap:8px; align-items:center;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <select id="kanban-owner-filter" class="input-field" style="padding:6px 10px; font-size:12px;" onchange="setKanbanOwnerFilter(this.value)">
+                <option value="ALL">👥 Todos los Ejecutivos</option>
+                <option value="MINE">👤 Solo Mis Oportunidades</option>
+              </select>
               <button class="btn" onclick="filterKanban('ALL')">Todos</button>
-              <button class="btn btn-emerald" onclick="filterKanban('RENTA_MRR')">Solo Renta MRR</button>
-              <button class="btn btn-gold" onclick="filterKanban('VENTA_CAPEX')">Solo Venta CapEx</button>
-              <button class="btn btn-cyan" onclick="openAuthModal()">🔐 Ejecutivo Activo</button>
+              <button class="btn btn-emerald" onclick="filterKanban('RENTA_MRR')">Renta MRR</button>
+              <button class="btn btn-gold" onclick="filterKanban('VENTA_CAPEX')">Venta CapEx</button>
+              <button class="btn btn-cyan" id="btn-whatif-toggle" onclick="toggleKanbanWhatIfMode()">🧪 Simulación What-If: OFF</button>
+              <button class="btn" id="btn-whatif-reset" style="display:none; border-color:var(--accent-gold); color:var(--accent-gold);" onclick="resetKanbanWhatIf()">↺ Restaurar Real</button>
+              <button class="btn btn-emerald" onclick="openNewDealModal('DISCOVERY')">+ Nueva Oportunidad</button>
             </div>
+          </div>
+
+          <div id="whatif-banner" style="display:none; padding:10px 14px; margin-bottom:12px; border-radius:10px; background:rgba(245,158,11,0.12); border:1px solid var(--accent-gold); font-size:12.5px; color:#fde68a;">
+            🧪 <strong>MODO SIMULACIÓN WHAT-IF ACTIVO (Sandbox CEO):</strong> Arrastra cualquier tarjeta a <em>Cerrado Ganado</em> o entre columnas sin pedir justificación ni alterar PostgreSQL para proyectar tu flujo de caja. Haz clic en <strong>↺ Restaurar Real</strong> para volver al estado oficial.
           </div>
 
           <div id="kanban-global-summary" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:14px;"></div>
@@ -334,6 +353,86 @@
           </div>
 
           <div class="catalog-grid" id="catalog-cards-container"></div>
+        </section>
+
+        <!-- VIEW 6: TEAM MEMBERS CRUD & RBAC PROFILES -->
+        <section id="view-team" class="view-panel">
+          <div class="section-header">
+            <div>
+              <h1 class="section-title">Equipo Corporativo, Autenticación & Perfiles de Acceso (RBAC)</h1>
+              <p class="section-desc">
+                CRUD completo de usuarios en PostgreSQL 16 (`users`) con los <strong>6 Perfiles Corporativos</strong> diseñados para <strong>projectsfactory.io</strong> y <strong>finanactionable.co</strong>.
+              </p>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button class="btn btn-cyan" onclick="openLoginScreenGate()">🔐 Ver Pantalla Inicial Login / Registro</button>
+              <button class="btn btn-emerald" onclick="openTeamMemberModal()">+ Nuevo Miembro del Equipo</button>
+            </div>
+          </div>
+
+          <!-- 6 RBAC PROFILES MATRIX -->
+          <div class="card-panel" style="margin-bottom:20px;">
+            <div class="card-title">
+              <span>Matriz de los 6 Perfiles Corporativos Recomendados (RBAC)</span>
+              <span class="badge badge-hibrido">Gobernanza Comercial & Financiera</span>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-top:12px;">
+              <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid var(--accent-emerald);">
+                <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-emerald); font-weight:700;">1. SUPER_ADMIN</div>
+                <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Administrador General / Founder</div>
+                <div style="font-size:12px; color:var(--text-secondary);">Control total: CRUD Usuarios, Catálogo IP, aprobación de precios, Modo Simulación What-If CEO y Servidor MCP.</div>
+              </div>
+              <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid var(--accent-gold);">
+                <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-gold); font-weight:700;">2. FINANCE_STRATEGIST</div>
+                <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Director Financiero (FinActionable)</div>
+                <div style="font-size:12px; color:var(--text-secondary);">Autoridad sobre Deal Studio, estructuración Venta CapEx vs. Renta MRR, márgenes sobre Render/Firebase y LTV.</div>
+              </div>
+              <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid var(--accent-cyan);">
+                <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan); font-weight:700;">3. SALES_EXECUTIVE</div>
+                <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Ejecutivo Comercial B2B (Account Exec)</div>
+                <div style="font-size:12px; color:var(--text-secondary);">Operación diaria del Kanban Drag & Drop, Ingesta Zero-Admin (`Ctrl+K`), Smart Grid B2B y seguimiento de clientes.</div>
+              </div>
+              <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #a855f7;">
+                <div style="font-family:var(--font-mono); font-size:11px; color:#c084fc; font-weight:700;">4. SOLUTIONS_ARCHITECT</div>
+                <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Arquitecto de Soluciones IA & Cloud</div>
+                <div style="font-size:12px; color:var(--text-secondary);">Responsable técnico de la columna <em>Demo Técnica</em>, definición de stack en el Catálogo IP y herramientas MCP.</div>
+              </div>
+              <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #38bdf8;">
+                <div style="font-family:var(--font-mono); font-size:11px; color:#38bdf8; font-weight:700;">5. PARTNER_MANAGER</div>
+                <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Director de Alianzas & White-Label</div>
+                <div style="font-size:12px; color:var(--text-secondary);">Comercialización de licencias White-Label, integradores regionales y canales de distribución B2B.</div>
+              </div>
+              <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #94a3b8;">
+                <div style="font-family:var(--font-mono); font-size:11px; color:#cbd5e1; font-weight:700;">6. AUDITOR_VIEWER</div>
+                <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Auditor / Junta Directiva & Investors</div>
+                <div style="font-size:12px; color:var(--text-secondary);">Supervisión de solo lectura sobre indicadores MRR/ARR, curvas de equilibrio y bitácora de auditoría Kanban.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- USERS CRUD TABLE -->
+          <div class="card-panel">
+            <div class="card-title">
+              <span>Directorio Activo de Miembros del Equipo (`users` en PostgreSQL 16)</span>
+              <button class="btn btn-emerald" onclick="openTeamMemberModal()">+ Crear Nuevo Miembro</button>
+            </div>
+            <div class="smart-table-wrap" style="margin-top:12px; border:none;">
+              <table class="smart-table">
+                <thead>
+                  <tr>
+                    <th>Miembro / Usuario</th>
+                    <th>Correo Corporativo</th>
+                    <th>Perfil RBAC</th>
+                    <th>Cargo / Rol</th>
+                    <th>Unidad de Enfoque</th>
+                    <th>Estado</th>
+                    <th>Acciones CRUD</th>
+                  </tr>
+                </thead>
+                <tbody id="team-users-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
         <!-- VIEW 6: MCP SERVER & CLOUD DEPLOYMENT -->
@@ -525,65 +624,305 @@
     </div>
   </div>
 
-  <!-- MODAL DE AUTENTICACIÓN EJECUTIVA & GESTIÓN DE RESPONSABLE -->
-  <div class="modal-backdrop" id="auth-modal">
-    <div class="modal-card" style="max-width:660px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+  <!-- PANTALLA INICIAL DE AUTENTICACIÓN FULL-SCREEN (LOGIN & REGISTRO POR PRIMERA VEZ) -->
+  <div class="modal-backdrop" id="login-screen-gate" style="background:radial-gradient(circle at 20% 20%, #0a192f 0%, #05070b 75%); z-index:2000;">
+    <div class="modal-card" style="max-width:960px; padding:0; overflow:hidden; display:grid; grid-template-columns: 1.05fr 1.15fr; border:1px solid rgba(16,185,129,0.4);">
+      <!-- Left Column: Brand & RBAC Security Overview -->
+      <div style="padding:32px; background:linear-gradient(160deg, rgba(16,185,129,0.14) 0%, rgba(6,9,15,0.96) 65%); border-right:1px solid var(--border-hairline); display:flex; flex-direction:column; justify-content:space-between;">
         <div>
-          <span class="badge badge-renta">Autenticación de Equipo · Trazabilidad & Gobernanza</span>
-          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:6px;">Identidad del Ejecutivo Responsable (Sesión Activa)</h2>
+          <div style="display:flex; gap:8px; margin-bottom:16px;">
+            <span class="brand-pill pf">projectsfactory.io</span>
+            <span class="brand-pill fa">finanactionable.co</span>
+          </div>
+          <h1 style="font-family:var(--font-display); font-size:28px; font-weight:800; line-height:1.2; margin-bottom:10px;">
+            NexusPF AI-Driven CRM
+          </h1>
+          <p style="font-size:13px; color:var(--text-secondary); line-height:1.55; margin-bottom:20px;">
+            Sistema Operativo Comercial y Financiero para Venta Llave en Mano (CapEx) y Renta Mensual (MRR / AaaS) con trazabilidad por ejecutivo en PostgreSQL 16.
+          </p>
+
+          <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:8px;">
+            ⚡ Acceso Rápido Demo (1 Clic por Perfil RBAC):
+          </div>
+          <div id="login-gate-quick-profiles" style="display:flex; flex-direction:column; gap:7px; max-height:270px; overflow-y:auto;"></div>
         </div>
-        <button class="btn" type="button" onclick="closeAuthModal()">✕ Cerrar</button>
+
+        <div style="margin-top:18px; padding-top:12px; border-top:1px solid var(--border-hairline); font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+          <span>🔒 PostgreSQL 16 + RBAC Activo</span>
+          <span>Clave demo: <code>nexus2026</code></span>
+        </div>
       </div>
 
-      <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">
-        Cada movimiento en el Kanban (Drag & Drop) y cada simulación queda firmada en PostgreSQL con el ejecutivo autenticado. Selecciona tu perfil corporativo o registra un nuevo integrante del equipo:
-      </p>
+      <!-- Right Column: Login & Sign-Up Tabs -->
+      <div style="padding:32px; background:var(--bg-surface); display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-emerald" id="tab-btn-login" type="button" onclick="switchLoginGateTab('login')">
+                🔑 Iniciar Sesión
+              </button>
+              <button class="btn" id="tab-btn-register" type="button" onclick="switchLoginGateTab('register')">
+                ✨ Registrarse por Primera Vez
+              </button>
+            </div>
+            <button class="btn" type="button" onclick="closeLoginScreenGate()" title="Continuar con sesión actual">✕</button>
+          </div>
 
-      <div style="margin-bottom:16px;">
-        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:8px;">
-          Cambio Rápido de Sesión Ejecutiva (1 Clic):
-        </div>
-        <div id="auth-quick-users-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;"></div>
-      </div>
+          <!-- FORM 1: LOGIN -->
+          <div id="login-gate-form-login">
+            <h2 style="font-family:var(--font-display); font-size:21px; margin-bottom:6px;">Bienvenido de nuevo</h2>
+            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:16px;">
+              Ingresa tu usuario o correo corporativo y tu contraseña para firmar tus operaciones en el Kanban.
+            </p>
 
-      <div style="padding:14px; background:var(--bg-elevated); border:1px solid var(--border-hairline); border-radius:12px;">
-        <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-gold); text-transform:uppercase; margin-bottom:10px;">
-          Iniciar Sesión con Credenciales o Registrar Nuevo Ejecutivo en PostgreSQL
+            <div style="margin-bottom:12px;">
+              <label class="control-label" style="display:block; margin-bottom:5px;">Usuario o Correo Corporativo *</label>
+              <input type="text" id="lg-login-identifier" class="input-field" style="width:100%;" value="alfonso@projectsfactory.io" placeholder="Ej. alfonso o alfonso@projectsfactory.io" />
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <label class="control-label" style="display:block; margin-bottom:5px;">Contraseña (`password`) *</label>
+              <div style="display:flex; gap:6px;">
+                <input type="password" id="lg-login-password" class="input-field" style="width:100%;" value="nexus2026" placeholder="••••••••" />
+                <button class="btn" type="button" onclick="togglePasswordVisibility('lg-login-password')">👁️</button>
+              </div>
+            </div>
+
+            <div id="lg-login-error" style="display:none; padding:10px; border-radius:8px; background:rgba(244,63,94,0.12); border:1px solid var(--accent-rose); color:#fda4af; font-size:12px; margin-bottom:12px;"></div>
+
+            <button class="btn btn-emerald" type="button" style="width:100%; justify-content:center; padding:11px; font-size:13.5px;" onclick="submitGateLogin()">
+              🚀 Entrar a NexusPF CRM
+            </button>
+          </div>
+
+          <!-- FORM 2: FIRST-TIME REGISTRATION (SIGN UP) -->
+          <div id="login-gate-form-register" style="display:none;">
+            <h2 style="font-family:var(--font-display); font-size:21px; margin-bottom:6px;">Crear Cuenta Corporativa</h2>
+            <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">
+              Regístrate por primera vez y selecciona tu perfil RBAC dentro de <strong>projectsfactory.io</strong> o <strong>finanactionable.co</strong>:
+            </p>
+
+            <div style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap:10px; margin-bottom:10px;">
+              <div>
+                <label class="control-label" style="display:block; margin-bottom:4px;">Nombre Completo *</label>
+                <input type="text" id="lg-reg-name" class="input-field" style="width:100%;" placeholder="Ej. Carolina Méndez" />
+              </div>
+              <div>
+                <label class="control-label" style="display:block; margin-bottom:4px;">Usuario (`username`) *</label>
+                <input type="text" id="lg-reg-username" class="input-field" style="width:100%;" placeholder="Ej. carolina" />
+              </div>
+            </div>
+
+            <div style="margin-bottom:10px;">
+              <label class="control-label" style="display:block; margin-bottom:4px;">Correo Corporativo *</label>
+              <input type="email" id="lg-reg-email" class="input-field" style="width:100%;" placeholder="carolina@projectsfactory.io" />
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+              <div>
+                <label class="control-label" style="display:block; margin-bottom:4px;">Perfil RBAC *</label>
+                <select id="lg-reg-role-code" class="input-field" style="width:100%;">
+                  <option value="SUPER_ADMIN">SUPER_ADMIN — Administrador General</option>
+                  <option value="FINANCE_STRATEGIST">FINANCE_STRATEGIST — Director Financiero</option>
+                  <option value="SALES_EXECUTIVE" selected>SALES_EXECUTIVE — Ejecutivo Comercial B2B</option>
+                  <option value="SOLUTIONS_ARCHITECT">SOLUTIONS_ARCHITECT — Arquitecto IA & Cloud</option>
+                  <option value="PARTNER_MANAGER">PARTNER_MANAGER — Director de Alianzas</option>
+                  <option value="AUDITOR_VIEWER">AUDITOR_VIEWER — Auditor / Junta Directiva</option>
+                </select>
+              </div>
+              <div>
+                <label class="control-label" style="display:block; margin-bottom:4px;">Unidad de Negocio</label>
+                <select id="lg-reg-brand" class="input-field" style="width:100%;">
+                  <option value="projectsfactory.io & finanactionable.co">Ambas Unidades (Global)</option>
+                  <option value="projectsfactory.io">projectsfactory.io</option>
+                  <option value="finanactionable.co">finanactionable.co</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:12px;">
+              <div>
+                <label class="control-label" style="display:block; margin-bottom:4px;">Cargo Personalizado</label>
+                <input type="text" id="lg-reg-role-title" class="input-field" style="width:100%;" placeholder="Ej. VP Comercial LATAM" />
+              </div>
+              <div>
+                <label class="control-label" style="display:block; margin-bottom:4px;">Contraseña *</label>
+                <div style="display:flex; gap:6px;">
+                  <input type="password" id="lg-reg-password" class="input-field" style="width:100%;" value="nexus2026" />
+                  <button class="btn" type="button" onclick="togglePasswordVisibility('lg-reg-password')">👁️</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="lg-reg-error" style="display:none; padding:10px; border-radius:8px; background:rgba(244,63,94,0.12); border:1px solid var(--accent-rose); color:#fda4af; font-size:12px; margin-bottom:12px;"></div>
+
+            <button class="btn btn-emerald" type="button" style="width:100%; justify-content:center; padding:11px; font-size:13.5px;" onclick="submitGateRegister()">
+              ✨ Crear Cuenta en PostgreSQL e Ingresar
+            </button>
+          </div>
         </div>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
-          <div>
-            <label class="control-label" style="display:block; margin-bottom:4px;">Nombre Completo</label>
-            <input type="text" id="auth-input-name" class="input-field" style="width:100%;" placeholder="Ej. Alfonso Gordillo" />
-          </div>
-          <div>
-            <label class="control-label" style="display:block; margin-bottom:4px;">Correo Corporativo *</label>
-            <input type="email" id="auth-input-email" class="input-field" style="width:100%;" placeholder="alfonso@projectsfactory.io" />
-          </div>
-          <div>
-            <label class="control-label" style="display:block; margin-bottom:4px;">Cargo / Rol Ejecutivo</label>
-            <input type="text" id="auth-input-role" class="input-field" style="width:100%;" placeholder="CEO & Founder" />
-          </div>
-          <div>
-            <label class="control-label" style="display:block; margin-bottom:4px;">PIN / Clave (Demo: nexus2026)</label>
-            <input type="password" id="auth-input-pin" class="input-field" style="width:100%;" value="nexus2026" />
-          </div>
-        </div>
-        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
-          <button class="btn btn-cyan" type="button" onclick="submitAuthForm(false)">🔑 Autenticar Correo</button>
-          <button class="btn btn-emerald" type="button" onclick="submitAuthForm(true)">➕ Registrar & Activar Ejecutivo</button>
+
+        <div style="font-size:11.5px; color:var(--text-muted); text-align:center; margin-top:16px;">
+          ¿Ya tienes sesión iniciada? <a href="javascript:void(0)" onclick="closeLoginScreenGate()" style="color:var(--accent-emerald);">Volver al Tablero Activo →</a>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL DE AUDITORÍA DE TRANSICIÓN DE ETAPA KANBAN (DRAG & DROP) -->
+  <!-- MODAL CRUD PARA CREAR / EDITAR MIEMBRO DEL EQUIPO (DESDE VISTA EQUIPO) -->
+  <div class="modal-backdrop" id="team-member-modal">
+    <div class="modal-card" style="max-width:660px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div>
+          <span class="badge badge-renta" id="tm-modal-badge">CRUD Equipo & Roles RBAC · PostgreSQL 16</span>
+          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:6px;" id="tm-modal-title">Registrar Nuevo Miembro del Equipo</h2>
+        </div>
+        <button class="btn" type="button" onclick="closeTeamMemberModal()">✕ Cerrar</button>
+      </div>
+
+      <input type="hidden" id="tm-id" value="" />
+
+      <div style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap:12px; margin-bottom:12px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Nombre Completo *</label>
+          <input type="text" id="tm-name" class="input-field" style="width:100%;" placeholder="Ej. Martín Vargas" />
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Usuario (`username`) *</label>
+          <input type="text" id="tm-username" class="input-field" style="width:100%;" placeholder="Ej. martin" />
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap:12px; margin-bottom:12px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Correo Corporativo *</label>
+          <input type="email" id="tm-email" class="input-field" style="width:100%;" placeholder="martin@projectsfactory.io" />
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Contraseña / Clave de Acceso *</label>
+          <input type="text" id="tm-password" class="input-field" style="width:100%;" value="nexus2026" />
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Perfil RBAC *</label>
+          <select id="tm-role-code" class="input-field" style="width:100%;">
+            <option value="SUPER_ADMIN">SUPER_ADMIN — Administrador General</option>
+            <option value="FINANCE_STRATEGIST">FINANCE_STRATEGIST — Director Financiero</option>
+            <option value="SALES_EXECUTIVE">SALES_EXECUTIVE — Ejecutivo Comercial B2B</option>
+            <option value="SOLUTIONS_ARCHITECT">SOLUTIONS_ARCHITECT — Arquitecto IA & Cloud</option>
+            <option value="PARTNER_MANAGER">PARTNER_MANAGER — Director de Alianzas</option>
+            <option value="AUDITOR_VIEWER">AUDITOR_VIEWER — Auditor / Junta Directiva</option>
+          </select>
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Cargo / Título Ejecutivo</label>
+          <input type="text" id="tm-role-title" class="input-field" style="width:100%;" placeholder="Ej. Senior Account Executive" />
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Unidad de Negocio</label>
+          <select id="tm-brand" class="input-field" style="width:100%;">
+            <option value="projectsfactory.io & finanactionable.co">projectsfactory.io & finanactionable.co</option>
+            <option value="projectsfactory.io">projectsfactory.io</option>
+            <option value="finanactionable.co">finanactionable.co</option>
+          </select>
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Estado de la Cuenta</label>
+          <select id="tm-status" class="input-field" style="width:100%;">
+            <option value="ACTIVO">ACTIVO</option>
+            <option value="SUSPENDIDO">SUSPENDIDO</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn" type="button" onclick="closeTeamMemberModal()">Cancelar</button>
+        <button class="btn btn-emerald" type="button" onclick="saveTeamMemberCrud()">💾 Guardar Miembro en PostgreSQL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CREAR NUEVA OPORTUNIDAD DESDE CUALQUIER COLUMNA DEL KANBAN -->
+  <div class="modal-backdrop" id="new-deal-modal">
+    <div class="modal-card" style="max-width:640px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div>
+          <span class="badge badge-renta">Creación Rápida en Kanban · PostgreSQL 16</span>
+          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:6px;">Nueva Oportunidad Comercial Dual</h2>
+        </div>
+        <button class="btn" type="button" onclick="closeNewDealModal()">✕ Cerrar</button>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label class="control-label" style="display:block; margin-bottom:4px;">Título de la Oportunidad *</label>
+        <input type="text" id="nd-title" class="input-field" style="width:100%;" placeholder="Ej. Despliegue Agente IA Conciliaciones — Grupo Nutresa" />
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Cuenta B2B Asociada</label>
+          <select id="nd-account" class="input-field" style="width:100%;"></select>
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Producto Digital / Agente IA</label>
+          <select id="nd-product" class="input-field" style="width:100%;" onchange="syncNewDealProductDefaults()"></select>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Columna Inicial del Kanban</label>
+          <select id="nd-stage" class="input-field" style="width:100%;">
+            <option value="DISCOVERY">1. Discovery</option>
+            <option value="DEMO_TECNICA">2. Demo Técnica</option>
+            <option value="SIMULACION_FINACTIONABLE">3. Simulación FinActionable</option>
+            <option value="NEGOCIACION">4. Negociación</option>
+            <option value="CERRADO_GANADO">5. Cerrado Ganado</option>
+          </select>
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Modalidad Comercial Inicial</label>
+          <select id="nd-modality" class="input-field" style="width:100%;">
+            <option value="RENTA_MRR">RENTA MRR (SaaS / AaaS)</option>
+            <option value="VENTA_CAPEX">VENTA CAPEX (Buyout Llave en Mano)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-bottom:16px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Canon Renta MRR (USD/m)</label>
+          <input type="number" id="nd-mrr" class="input-field" style="width:100%;" value="950" />
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Setup Fee (USD)</label>
+          <input type="number" id="nd-setup" class="input-field" style="width:100%;" value="2200" />
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">Equiv. Venta Buyout (USD)</label>
+          <input type="number" id="nd-buyout" class="input-field" style="width:100%;" value="21000" />
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn" type="button" onclick="closeNewDealModal()">Cancelar</button>
+        <button class="btn btn-emerald" type="button" onclick="saveNewDealKanban()">💾 Crear Oportunidad en Kanban</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE AUDITORÍA DE TRANSICIÓN DE ETAPA KANBAN (DRAG & DROP + 4 FUNCIONES IA DEL PUNTO 2) -->
   <div class="modal-backdrop" id="stage-transition-modal">
-    <div class="modal-card" style="max-width:740px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <div class="modal-card" style="max-width:800px; max-height:92vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <div>
           <span class="badge badge-hibrido" id="st-modal-badge">Auditoría de Cambio de Etapa · Kanban Drag & Drop</span>
-          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:6px;" id="st-modal-title">Confirmar Movimiento de Oportunidad</h2>
+          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:4px;" id="st-modal-title">Confirmar Movimiento de Oportunidad</h2>
         </div>
         <button class="btn" type="button" onclick="cancelStageTransition()">✕ Cancelar</button>
       </div>
@@ -592,14 +931,17 @@
       <input type="hidden" id="st-from-stage" value="" />
       <input type="hidden" id="st-to-stage" value="" />
 
-      <div id="st-route-banner" style="padding:12px 14px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;"></div>
+      <div id="st-route-banner" style="padding:10px 14px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;"></div>
 
-      <div style="display:grid; grid-template-columns: 1.2fr 1fr 0.7fr; gap:12px; margin-bottom:12px;">
+      <!-- 2.2 STRICT AI STAGE GATEKEEPER ALERT -->
+      <div id="st-gatekeeper-alert" style="padding:9px 12px; border-radius:8px; font-size:12px; margin-bottom:10px; display:none;"></div>
+
+      <div style="display:grid; grid-template-columns: 1.25fr 1fr 0.75fr; gap:10px; margin-bottom:10px;">
         <div>
           <label class="control-label" style="display:block; margin-bottom:4px;">👤 Ejecutivo Responsable (Autenticado) *</label>
           <div style="display:flex; gap:6px;">
             <input type="text" id="st-responsible-name" class="input-field" style="width:100%; background:#08101d; color:var(--accent-emerald); font-weight:600;" readonly />
-            <button class="btn" type="button" onclick="openAuthModal()" title="Cambiar usuario autenticado">🔐</button>
+            <button class="btn" type="button" onclick="openLoginScreenGate()" title="Cambiar ejecutivo autenticado">🔐</button>
           </div>
           <input type="hidden" id="st-responsible-email" />
           <input type="hidden" id="st-responsible-role" />
@@ -609,35 +951,57 @@
           <input type="datetime-local" id="st-transition-date" class="input-field" style="width:100%;" />
         </div>
         <div>
-          <label class="control-label" style="display:block; margin-bottom:4px;">🎯 Probabilidad (%)</label>
-          <input type="number" id="st-probability" class="input-field" style="width:100%;" min="5" max="100" step="5" value="75" />
+          <label class="control-label" style="display:block; margin-bottom:4px;">🎯 Probabilidad IA (%)</label>
+          <input type="number" id="st-probability" class="input-field" style="width:100%; font-weight:700; color:var(--accent-cyan);" min="5" max="100" step="1" value="75" />
         </div>
       </div>
 
-      <!-- AI COPILOT BOX FOR KANBAN TRANSITION -->
-      <div style="padding:12px 14px; background:rgba(56,189,248,0.07); border:1px solid rgba(56,189,248,0.35); border-radius:10px; margin-bottom:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <!-- AI COPILOT BOX + 2.1 VOICE DICTATION -->
+      <div style="padding:10px 14px; background:rgba(56,189,248,0.07); border:1px solid rgba(56,189,248,0.35); border-radius:10px; margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
           <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan); font-weight:700;">
-            ✦ COPILOTO IA DE GOBERNANZA COMERCIAL (GATEKEEPER & AUTO-REDACCIÓN)
+            ✦ COPILOTO IA DE TRANSICIÓN (VOZ + GATEKEEPER + SENTIMIENTO)
           </span>
-          <button class="btn btn-cyan" type="button" style="padding:5px 10px; font-size:11.5px;" onclick="applyAiTransitionSuggestion()">
-            ✨ Autocompletar Justificación y Próximo Paso con IA
-          </button>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-gold" type="button" style="padding:5px 10px; font-size:11px;" id="btn-voice-dictate" onclick="triggerVoiceDictation()">
+              🎙️ Dictar Justificación por Voz
+            </button>
+            <button class="btn btn-cyan" type="button" style="padding:5px 10px; font-size:11px;" onclick="applyAiTransitionSuggestion()">
+              ✨ Autocompletar con IA
+            </button>
+          </div>
         </div>
-        <div id="st-ai-checklist" style="font-size:12px; color:var(--text-secondary); line-height:1.5;"></div>
+        <div id="st-ai-checklist" style="font-size:11.5px; color:var(--text-secondary); line-height:1.45;"></div>
       </div>
 
-      <div style="margin-bottom:12px;">
+      <!-- 2.4 DYNAMIC SENTIMENT & PROBABILITY + JUSTIFICATION -->
+      <div style="margin-bottom:10px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
           <label class="control-label">📝 Acción Tomada / Justificación Ejecutiva del Cambio *</label>
           <span id="st-quality-badge" style="font-family:var(--font-mono); font-size:11px; color:var(--accent-gold);">Calidad de Evidencia IA: Pendiente</span>
         </div>
-        <textarea id="st-justification" rows="3" placeholder="Describe qué acción comercial, técnica o financiera se ejecutó con el cliente para justificar el avance de columna..."></textarea>
+        <textarea id="st-justification" rows="2" placeholder="Escribe o dicta con 🎙️ la acción comercial ejecutada (ej. 'Aprobado presupuesto por comité financiero, firmamos el viernes')..."></textarea>
+        <div id="st-sentiment-bar" style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); margin-top:4px;">
+          📊 Analizador Semántico IA: Escribe palabras clave (ej. "aprobado", "comité", "firmado" o "pendiente", "duda") para ver el ajuste dinámico de probabilidad.
+        </div>
       </div>
 
-      <div style="margin-bottom:14px;">
+      <div style="margin-bottom:10px;">
         <label class="control-label" style="display:block; margin-bottom:4px;">🚀 Próximo Hito Comprometido (Next Action)</label>
         <input type="text" id="st-next-action" class="input-field" style="width:100%;" placeholder="Ej. Enviar propuesta final y agendar comité de cierre..." />
+      </div>
+
+      <!-- 2.3 AUTO-GENERATED WHATSAPP / EMAIL FOLLOW-UP DRAFT -->
+      <div style="padding:10px 12px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.28); border-radius:10px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+          <span style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-emerald); font-weight:700;">
+            ✉️ MENSAJE EJECUTIVO POST-MOVIMIENTO GENERADO POR IA (WHATSAPP / EMAIL AL CLIENTE)
+          </span>
+          <button class="btn" type="button" style="padding:3px 8px; font-size:10.5px;" onclick="copyClientFollowupDraft()">
+            📋 Copiar Mensaje
+          </button>
+        </div>
+        <textarea id="st-client-followup" rows="2" style="font-size:11.5px; background:#060a12;"></textarea>
       </div>
 
       <div style="display:flex; justify-content:space-between; align-items:center;">

@@ -95,21 +95,57 @@ function computeFinActionableEconomics({
 }
 
 // ---------------------------------------------------------------------------
-// 0. Automatic Schema Migration: Users (Authentication) & Kanban Audit Trail
+// 0. Automatic Schema Migration: RBAC Users (Authentication) & Kanban Audit
 // ---------------------------------------------------------------------------
+const RBAC_ROLES_META = {
+  SUPER_ADMIN: {
+    label: "Administrador General (C-Level / Founder)",
+    permissions: "Control total: CRUD Usuarios, Catálogo IP, Kanban, Deal Studio, Modo What-If CEO y Servidor MCP",
+  },
+  FINANCE_STRATEGIST: {
+    label: "Director Financiero (FinActionable Strategist)",
+    permissions: "Autoridad sobre Simulador Venta vs. Renta, aprobación de precios Buyout/MRR, márgenes cloud y LTV",
+  },
+  SALES_EXECUTIVE: {
+    label: "Ejecutivo Comercial B2B (Account Executive)",
+    permissions: "Operación de Pipeline Kanban (Drag & Drop), Ingesta Zero-Admin (Ctrl+K), Smart Grid y cierre de cuentas",
+  },
+  SOLUTIONS_ARCHITECT: {
+    label: "Arquitecto de Soluciones IA & Cloud",
+    permissions: "Validación de Demos Técnicas, arquitectura de activos en Catálogo IP y consola de herramientas MCP",
+  },
+  PARTNER_MANAGER: {
+    label: "Director de Alianzas & Canales White-Label",
+    permissions: "Comercialización de licencias White-Label, gestión de partners B2B y cuentas corporativas",
+  },
+  AUDITOR_VIEWER: {
+    label: "Auditor / Junta Directiva & Inversionistas",
+    permissions: "Acceso de supervisión a métricas MRR/ARR, trazabilidad inmutable de etapas y curvas financieras",
+  },
+};
+
 async function ensureAuthAndKanbanSchema() {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
+        username VARCHAR(60),
         name VARCHAR(120) NOT NULL,
         email VARCHAR(140) UNIQUE NOT NULL,
+        role_code VARCHAR(50) DEFAULT 'SALES_EXECUTIVE',
         role VARCHAR(100) NOT NULL,
         brand_focus VARCHAR(60) DEFAULT 'projectsfactory.io & finanactionable.co',
         avatar_initials VARCHAR(6) NOT NULL,
-        access_pin VARCHAR(40) DEFAULT 'nexus2026',
+        access_pin VARCHAR(80) DEFAULT 'nexus2026',
+        status VARCHAR(25) DEFAULT 'ACTIVO',
+        permissions_summary TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );
+
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(60);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS role_code VARCHAR(50) DEFAULT 'SALES_EXECUTIVE';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(25) DEFAULT 'ACTIVO';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions_summary TEXT;
 
       CREATE TABLE IF NOT EXISTS deal_stage_history (
         id SERIAL PRIMARY KEY,
@@ -132,17 +168,91 @@ async function ensureAuthAndKanbanSchema() {
       ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_justification TEXT DEFAULT 'Oportunidad inicial calificada por comité comercial.';
     `);
 
-    const userCount = await pool.query("SELECT COUNT(*)::int AS cnt FROM users");
-    if (userCount.rows[0].cnt === 0) {
-      await pool.query(`
-        INSERT INTO users (name, email, role, brand_focus, avatar_initials, access_pin)
-        VALUES
-          ('Alfonso Gordillo', 'alfonso@projectsfactory.io', 'CEO & Founder', 'projectsfactory.io & finanactionable.co', 'AG', 'nexus2026'),
-          ('Valeria Mendoza', 'valeria@finanactionable.co', 'Chief Revenue & FinActionable AI Officer', 'finanactionable.co', 'VM', 'nexus2026'),
-          ('Sebastián Ríos', 'sebastian@projectsfactory.io', 'Lead AI & Cloud Architect', 'projectsfactory.io', 'SR', 'nexus2026'),
-          ('Camila Herrera', 'camila@finanactionable.co', 'Enterprise Account Executive', 'finanactionable.co', 'CH', 'nexus2026')
-        ON CONFLICT (email) DO NOTHING;
-      `);
+    const seedUsers = [
+      [
+        "alfonso",
+        "Alfonso Gordillo",
+        "alfonso@projectsfactory.io",
+        "SUPER_ADMIN",
+        "CEO & Founder (Super Admin)",
+        "projectsfactory.io & finanactionable.co",
+        "AG",
+        "nexus2026",
+        "ACTIVO",
+        RBAC_ROLES_META.SUPER_ADMIN.permissions,
+      ],
+      [
+        "valeria",
+        "Valeria Mendoza",
+        "valeria@finanactionable.co",
+        "FINANCE_STRATEGIST",
+        "Chief Revenue & FinActionable AI Officer",
+        "finanactionable.co",
+        "VM",
+        "nexus2026",
+        "ACTIVO",
+        RBAC_ROLES_META.FINANCE_STRATEGIST.permissions,
+      ],
+      [
+        "sebastian",
+        "Sebastián Ríos",
+        "sebastian@projectsfactory.io",
+        "SOLUTIONS_ARCHITECT",
+        "Lead AI & Cloud Architect",
+        "projectsfactory.io",
+        "SR",
+        "nexus2026",
+        "ACTIVO",
+        RBAC_ROLES_META.SOLUTIONS_ARCHITECT.permissions,
+      ],
+      [
+        "camila",
+        "Camila Herrera",
+        "camila@finanactionable.co",
+        "SALES_EXECUTIVE",
+        "Enterprise Account Executive B2B",
+        "finanactionable.co",
+        "CH",
+        "nexus2026",
+        "ACTIVO",
+        RBAC_ROLES_META.SALES_EXECUTIVE.permissions,
+      ],
+      [
+        "andres",
+        "Andrés Morales",
+        "andres@projectsfactory.io",
+        "PARTNER_MANAGER",
+        "Director de Alianzas & White-Label",
+        "projectsfactory.io",
+        "AM",
+        "nexus2026",
+        "ACTIVO",
+        RBAC_ROLES_META.PARTNER_MANAGER.permissions,
+      ],
+      [
+        "auditor",
+        "Comité Junta Directiva",
+        "auditoria@finanactionable.co",
+        "AUDITOR_VIEWER",
+        "Auditor Financiero & Investor Relations",
+        "projectsfactory.io & finanactionable.co",
+        "JD",
+        "nexus2026",
+        "ACTIVO",
+        RBAC_ROLES_META.AUDITOR_VIEWER.permissions,
+      ],
+    ];
+
+    for (const u of seedUsers) {
+      await pool.query(
+        `INSERT INTO users (username, name, email, role_code, role, brand_focus, avatar_initials, access_pin, status, permissions_summary)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ON CONFLICT (email) DO UPDATE
+           SET username = COALESCE(users.username, EXCLUDED.username),
+               role_code = COALESCE(users.role_code, EXCLUDED.role_code),
+               permissions_summary = COALESCE(users.permissions_summary, EXCLUDED.permissions_summary)`,
+        u
+      );
     }
 
     const histCount = await pool.query("SELECT COUNT(*)::int AS cnt FROM deal_stage_history");
@@ -162,19 +272,30 @@ async function ensureAuthAndKanbanSchema() {
         );
       }
     }
-    console.log("[NexusPF-CRM] Auth & Kanban Audit Schema verified.");
+    console.log("[NexusPF-CRM] Enterprise RBAC Auth & Kanban Audit Schema verified.");
   } catch (err) {
     console.error("[NexusPF-CRM] Schema migration notice:", err.message);
   }
 }
 
+function buildInitials(nameStr) {
+  const parts = String(nameStr || "Ejecutivo Nexus")
+    .trim()
+    .split(/\s+/);
+  return ((parts[0]?.[0] || "E") + (parts[1]?.[0] || "X")).toUpperCase();
+}
+
 // ---------------------------------------------------------------------------
-// 1. Health & System Identity + Authentication Endpoints
+// 1. Health, System Identity, Authentication & Users RBAC CRUD
 // ---------------------------------------------------------------------------
+app.get("/api/auth/roles", (_req, res) => {
+  res.json(RBAC_ROLES_META);
+});
+
 app.get("/api/auth/users", async (_req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT id, name, email, role, brand_focus, avatar_initials, created_at FROM users ORDER BY id ASC"
+      "SELECT id, username, name, email, role_code, role, brand_focus, avatar_initials, status, permissions_summary, created_at FROM users ORDER BY id ASC"
     );
     res.json(rows);
   } catch (error) {
@@ -182,42 +303,209 @@ app.get("/api/auth/users", async (_req, res) => {
   }
 });
 
+app.get("/api/users", async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, username, name, email, role_code, role, brand_focus, avatar_initials, status, permissions_summary, created_at FROM users ORDER BY id ASC"
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/users", async (req, res) => {
+  try {
+    const {
+      username,
+      name,
+      email,
+      role_code = "SALES_EXECUTIVE",
+      role,
+      brand_focus = "projectsfactory.io & finanactionable.co",
+      password = "nexus2026",
+      status = "ACTIVO",
+    } = req.body;
+
+    if (!name || !String(name).trim() || !email || !String(email).trim()) {
+      return res.status(400).json({ error: "Nombre completo y correo corporativo son obligatorios." });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanUser = (username || cleanEmail.split("@")[0]).trim().toLowerCase();
+    const roleMeta = RBAC_ROLES_META[role_code] || RBAC_ROLES_META.SALES_EXECUTIVE;
+    const finalRoleTitle = role && String(role).trim() ? String(role).trim() : roleMeta.label;
+    const initials = buildInitials(name);
+
+    const existing = await pool.query("SELECT id FROM users WHERE LOWER(email) = $1", [cleanEmail]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: `Ya existe un miembro registrado con el correo ${cleanEmail}. Puedes editarlo en la tabla.` });
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO users (username, name, email, role_code, role, brand_focus, avatar_initials, access_pin, status, permissions_summary)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING id, username, name, email, role_code, role, brand_focus, avatar_initials, status, permissions_summary, created_at`,
+      [
+        cleanUser,
+        String(name).trim(),
+        cleanEmail,
+        role_code,
+        finalRoleTitle,
+        brand_focus,
+        initials,
+        String(password || "nexus2026").trim(),
+        status,
+        roleMeta.permissions,
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('TEAM_MEMBER_CREATED', $1, $2)`,
+      [`Nuevo miembro del equipo creado: ${rows[0].name} [${rows[0].role_code}] (${rows[0].email})`, JSON.stringify(rows[0])]
+    );
+
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.put("/api/users/:id", async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    const { username, name, email, role_code, role, brand_focus, password, status } = req.body;
+
+    const existingRes = await pool.query("SELECT * FROM users WHERE id = $1", [userId]);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado." });
+    }
+    const cur = existingRes.rows[0];
+
+    const nextName = name !== undefined ? String(name).trim() : cur.name;
+    const nextEmail = email !== undefined ? String(email).trim().toLowerCase() : cur.email;
+    const nextUsername = username !== undefined ? String(username).trim().toLowerCase() : cur.username;
+    const nextRoleCode = role_code !== undefined ? role_code : cur.role_code;
+    const roleMeta = RBAC_ROLES_META[nextRoleCode] || RBAC_ROLES_META.SALES_EXECUTIVE;
+    const nextRole = role !== undefined && String(role).trim() ? String(role).trim() : roleMeta.label;
+    const nextBrand = brand_focus !== undefined ? brand_focus : cur.brand_focus;
+    const nextPin = password !== undefined && String(password).trim() !== "" ? String(password).trim() : cur.access_pin;
+    const nextStatus = status !== undefined ? status : cur.status;
+    const nextInitials = buildInitials(nextName);
+
+    const { rows } = await pool.query(
+      `UPDATE users
+       SET username = $1,
+           name = $2,
+           email = $3,
+           role_code = $4,
+           role = $5,
+           brand_focus = $6,
+           avatar_initials = $7,
+           access_pin = $8,
+           status = $9,
+           permissions_summary = $10
+       WHERE id = $11
+       RETURNING id, username, name, email, role_code, role, brand_focus, avatar_initials, status, permissions_summary, created_at`,
+      [
+        nextUsername,
+        nextName,
+        nextEmail,
+        nextRoleCode,
+        nextRole,
+        nextBrand,
+        nextInitials,
+        nextPin,
+        nextStatus,
+        roleMeta.permissions,
+        userId,
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('TEAM_MEMBER_UPDATED', $1, $2)`,
+      [`Perfil de usuario actualizado: ${rows[0].name} (${rows[0].role_code} · ${rows[0].status})`, JSON.stringify(rows[0])]
+    );
+
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete("/api/users/:id", async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    if (userId === 1) {
+      return res.status(400).json({ error: "No se puede eliminar al Super Administrador fundador principal." });
+    }
+    const existingRes = await pool.query("SELECT id, name, email FROM users WHERE id = $1", [userId]);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado." });
+    }
+    const deletedUser = existingRes.rows[0];
+    await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('TEAM_MEMBER_DELETED', $1, $2)`,
+      [`Miembro eliminado del equipo: ${deletedUser.name} (${deletedUser.email})`, JSON.stringify(deletedUser)]
+    );
+
+    res.json({ ok: true, deleted: deletedUser });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { email, accessPin = "nexus2026", name, role, brand_focus, isRegister = false } = req.body;
-    if (!email || !String(email).trim()) {
-      return res.status(400).json({ error: "El correo corporativo es obligatorio." });
-    }
-    const cleanEmail = String(email).trim().toLowerCase();
+    const {
+      identifier,
+      email,
+      username,
+      password,
+      accessPin,
+      name,
+      role_code = "SALES_EXECUTIVE",
+      role,
+      brand_focus = "projectsfactory.io & finanactionable.co",
+      isRegister = false,
+    } = req.body;
+
+    const loginId = String(identifier || email || username || "").trim().toLowerCase();
+    const secret = String(password || accessPin || "nexus2026").trim();
 
     if (isRegister) {
-      if (!name || !String(name).trim()) {
-        return res.status(400).json({ error: "El nombre completo es obligatorio para registrar un ejecutivo." });
+      const regEmail = String(email || identifier || "").trim().toLowerCase();
+      if (!name || !String(name).trim() || !regEmail) {
+        return res.status(400).json({ error: "Para registrarte ingresa tu Nombre Completo y Correo Corporativo." });
       }
-      const parts = String(name).trim().split(/\s+/);
-      const initials = ((parts[0]?.[0] || "E") + (parts[1]?.[0] || "X")).toUpperCase();
+      const cleanUser = String(username || regEmail.split("@")[0]).trim().toLowerCase();
+      const roleMeta = RBAC_ROLES_META[role_code] || RBAC_ROLES_META.SALES_EXECUTIVE;
+      const finalRole = role && String(role).trim() ? String(role).trim() : roleMeta.label;
+      const initials = buildInitials(name);
+
       const insertRes = await pool.query(
-        `INSERT INTO users (name, email, role, brand_focus, avatar_initials, access_pin)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO users (username, name, email, role_code, role, brand_focus, avatar_initials, access_pin, status, permissions_summary)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'ACTIVO',$9)
          ON CONFLICT (email) DO UPDATE
            SET name = EXCLUDED.name,
+               username = EXCLUDED.username,
+               role_code = EXCLUDED.role_code,
                role = EXCLUDED.role,
-               brand_focus = EXCLUDED.brand_focus
-         RETURNING id, name, email, role, brand_focus, avatar_initials`,
-        [
-          String(name).trim(),
-          cleanEmail,
-          role || "Executive Account Manager",
-          brand_focus || "projectsfactory.io & finanactionable.co",
-          initials,
-          accessPin || "nexus2026",
-        ]
+               brand_focus = EXCLUDED.brand_focus,
+               access_pin = EXCLUDED.access_pin
+         RETURNING id, username, name, email, role_code, role, brand_focus, avatar_initials, status, permissions_summary`,
+        [cleanUser, String(name).trim(), regEmail, role_code, finalRole, brand_focus, initials, secret || "nexus2026", roleMeta.permissions]
       );
       const newUser = insertRes.rows[0];
       await pool.query(
         `INSERT INTO activity_logs (event_type, summary, structured_payload)
-         VALUES ('AUTH_EXECUTIVE_LOGIN', $1, $2)`,
-        [`Ejecutivo registrado y autenticado: ${newUser.name} (${newUser.role})`, JSON.stringify(newUser)]
+         VALUES ('AUTH_EXECUTIVE_REGISTER', $1, $2)`,
+        [`Nuevo miembro registrado y autenticado: ${newUser.name} [${newUser.role_code}]`, JSON.stringify(newUser)]
       );
       return res.json({
         ok: true,
@@ -226,28 +514,44 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    const userRes = await pool.query("SELECT * FROM users WHERE LOWER(email) = $1", [cleanEmail]);
+    if (!loginId) {
+      return res.status(400).json({ error: "Ingresa tu Usuario o Correo Corporativo." });
+    }
+
+    const userRes = await pool.query(
+      "SELECT * FROM users WHERE LOWER(email) = $1 OR LOWER(username) = $1 LIMIT 1",
+      [loginId]
+    );
     if (userRes.rows.length === 0) {
-      return res.status(401).json({ error: "Usuario no encontrado. Puedes registrarlo en la pestaña 'Nuevo Ejecutivo'." });
+      return res.status(401).json({
+        error: "Usuario o correo no encontrado. Usa la pestaña 'Registrarse por Primera Vez' para crear tu cuenta.",
+      });
     }
     const u = userRes.rows[0];
-    if (accessPin && u.access_pin && String(accessPin).trim() !== String(u.access_pin).trim()) {
-      return res.status(401).json({ error: "PIN / Clave ejecutiva incorrecta (Clave demo: nexus2026)." });
+    if (u.status === "SUSPENDIDO") {
+      return res.status(403).json({ error: "Esta cuenta se encuentra suspendida por el Administrador." });
+    }
+    if (secret && u.access_pin && secret !== String(u.access_pin).trim()) {
+      return res.status(401).json({ error: "Contraseña incorrecta (Clave demo por defecto: nexus2026)." });
     }
 
     const safeUser = {
       id: u.id,
+      username: u.username,
       name: u.name,
       email: u.email,
+      role_code: u.role_code || "SALES_EXECUTIVE",
       role: u.role,
       brand_focus: u.brand_focus,
       avatar_initials: u.avatar_initials,
+      status: u.status || "ACTIVO",
+      permissions_summary: u.permissions_summary,
     };
 
     await pool.query(
       `INSERT INTO activity_logs (event_type, summary, structured_payload)
        VALUES ('AUTH_EXECUTIVE_LOGIN', $1, $2)`,
-      [`Sesión autenticada activa: ${safeUser.name} (${safeUser.role})`, JSON.stringify(safeUser)]
+      [`Sesión iniciada: ${safeUser.name} (${safeUser.role})`, JSON.stringify(safeUser)]
     );
 
     res.json({
@@ -294,7 +598,9 @@ app.get("/api/dashboard", async (_req, res) => {
         ORDER BY d.updated_at DESC, d.id ASC
       `),
       pool.query("SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 12"),
-      pool.query("SELECT id, name, email, role, brand_focus, avatar_initials FROM users ORDER BY id ASC"),
+      pool.query(
+        "SELECT id, username, name, email, role_code, role, brand_focus, avatar_initials, status, permissions_summary, created_at FROM users ORDER BY id ASC"
+      ),
       pool.query("SELECT * FROM deal_stage_history ORDER BY transition_date DESC, id DESC LIMIT 100"),
     ]);
 
@@ -893,6 +1199,27 @@ app.post("/api/ai/suggest-transition", async (req, res) => {
     };
 
     const selected = stagePlaybook[toStage] || stagePlaybook.SIMULACION_FINACTIONABLE;
+
+    // 2.2 Strict Stage Gatekeeper Alert (Sandbagging / Stage-Skipping Detection)
+    const stageOrder = ["DISCOVERY", "DEMO_TECNICA", "SIMULACION_FINACTIONABLE", "NEGOCIACION", "CERRADO_GANADO"];
+    const fromIdx = stageOrder.indexOf(fromStage);
+    const toIdx = stageOrder.indexOf(toStage);
+    let gatekeeperStatus = "VALIDATED";
+    let gatekeeperWarning = "✓ Gobernanza FinActionable Validada: La secuencia de etapas y márgenes cumplen políticas.";
+    if (toIdx - fromIdx > 1) {
+      gatekeeperStatus = "STAGE_SKIP_WARNING";
+      gatekeeperWarning = `⚠️ Alerta Gatekeeper IA (Salto de Etapa): Estás saltando ${toIdx - fromIdx} columnas (${fromStage} ➔ ${toStage}). Asegúrate de adjuntar evidencia de simulación económica y aprobación técnica en la justificación.`;
+    } else if (toStage === "NEGOCIACION" && Number(d.gross_margin_pct || 90) < 80) {
+      gatekeeperStatus = "MARGIN_WARNING";
+      gatekeeperWarning = `⚠️ Alerta FinActionable: Margen bruto proyectado (${d.gross_margin_pct}%) inferior al umbral objetivo del 80%. Revisar costos cloud antes de enviar contrato.`;
+    }
+
+    // 2.3 Auto-Generated Client Follow-up Message (WhatsApp / Email Draft)
+    const clientFollowupMessage = `Hola ${contact}, un gusto saludarte de parte del equipo de ${d.brand} (${responsibleName}). Tras nuestro avance a la etapa de ${toStage.replace(/_/g, " ")}, te comparto el resumen ejecutivo de "${product}" para ${company}: Modalidad ${d.modality} — Canon Renta: $${mrr} USD/mes (+$${Number(d.setup_fee_usd || 2200).toLocaleString("en-US")} Setup) | Equivalente Venta Llave en Mano: $${buyout} USD (Punto de equilibrio: Mes ${eqMonths}). Próximo paso: ${selected.nextAction}. ¿Te parece bien confirmar para este jueves a las 10:00 AM?`;
+
+    // 2.1 Voice Dictation Smart Transcript Sample
+    const voiceTranscriptSample = `Dictado por voz de ${responsibleName}: Acabo de finalizar sesión ejecutiva con ${contact} de ${company}. Confirmaron interés firme en ${product} bajo esquema ${d.modality} con canon mensual de $${mrr} dólares y equivalente llave en mano de $${buyout} dólares. Autorizan avanzar a ${toStage.replace(/_/g, " ")}.`;
+
     res.json({
       ok: true,
       dealId: d.id,
@@ -903,8 +1230,158 @@ app.post("/api/ai/suggest-transition", async (req, res) => {
       recommendedNextAction: selected.nextAction,
       checklist: selected.checklist,
       riskInsight: selected.riskInsight,
+      gatekeeperStatus,
+      gatekeeperWarning,
+      clientFollowupMessage,
+      voiceTranscriptSample,
       aiConfidenceScore: 96,
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create New Deal directly from Kanban Column (+ Nuevo Deal Rápido)
+app.post("/api/deals", async (req, res) => {
+  try {
+    const {
+      title,
+      account_id,
+      product_id,
+      stage = "DISCOVERY",
+      modality = "RENTA_MRR",
+      mrr_usd,
+      setup_fee_usd,
+      buyout_dynamic_usd,
+      responsibleName = "Alfonso Gordillo",
+      responsibleRole = "CEO & Founder",
+    } = req.body;
+
+    if (!title || !String(title).trim()) {
+      return res.status(400).json({ error: "El título de la oportunidad es obligatorio." });
+    }
+
+    const prodRes = await pool.query("SELECT * FROM digital_products WHERE id = $1", [Number(product_id) || 1]);
+    const prod = prodRes.rows[0] || {
+      id: 1,
+      brand: "projectsfactory.io",
+      buyout_price_usd: 20000,
+      setup_fee_usd: 2200,
+      monthly_rent_mrr_usd: 900,
+      infra_cost_monthly_usd: 65,
+      eng_hours_base: 120,
+    };
+
+    const finalMrr = Number(mrr_usd) || Number(prod.monthly_rent_mrr_usd) || 900;
+    const finalSetup = Number(setup_fee_usd) || Number(prod.setup_fee_usd) || 2200;
+    const finalBuyout = Number(buyout_dynamic_usd) || Number(prod.buyout_price_usd) || 20000;
+    const infra = Number(prod.infra_cost_monthly_usd) || 65;
+
+    const econ = computeFinActionableEconomics({
+      buyoutPrice: finalBuyout,
+      setupFee: finalSetup,
+      monthlyRentMrr: finalMrr,
+      infraCostMonthly: infra,
+      engHours: Number(prod.eng_hours_base) || 120,
+    });
+
+    const probMap = {
+      DISCOVERY: 35,
+      DEMO_TECNICA: 65,
+      SIMULACION_FINACTIONABLE: 75,
+      NEGOCIACION: 88,
+      CERRADO_GANADO: 100,
+    };
+
+    const { rows } = await pool.query(
+      `INSERT INTO deals
+        (title, account_id, product_id, brand, modality, stage, probability,
+         buyout_dynamic_usd, setup_fee_usd, mrr_usd, contract_months, infra_cost_monthly_usd,
+         cac_estimated_usd, breakeven_months, ltv_24m_usd, gross_margin_pct,
+         next_action, source_channel, last_changed_by, last_changed_role, last_stage_change_at, last_justification)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,24,$11,900,$12,$13,$14,$15,'Kanban Quick Create',$16,$17,NOW(),$18)
+       RETURNING *`,
+      [
+        String(title).trim(),
+        Number(account_id) || 1,
+        prod.id,
+        prod.brand,
+        modality,
+        stage,
+        probMap[stage] || 40,
+        finalBuyout,
+        finalSetup,
+        finalMrr,
+        infra,
+        econ.breakevenMonths,
+        econ.ltv24mRent,
+        econ.grossMarginRentPct,
+        `Validar propuesta ${modality} y avanzar en Kanban`,
+        responsibleName,
+        responsibleRole,
+        `Oportunidad creada directamente en columna ${stage} por ${responsibleName}.`,
+      ]
+    );
+
+    const created = rows[0];
+    await pool.query(
+      `INSERT INTO deal_stage_history
+        (deal_id, from_stage, to_stage, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
+       VALUES ($1, $2, $3, $4, 'ejecutivo@projectsfactory.io', $5, NOW(), $6, $7, 95)`,
+      [
+        created.id,
+        stage,
+        stage,
+        responsibleName,
+        responsibleRole,
+        `Creación inicial de oportunidad en columna ${stage} (${modality}: $${finalMrr}/m | Buyout $${finalBuyout}).`,
+        created.next_action,
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('KANBAN_DEAL_CREATED', $1, $2)`,
+      [`[${responsibleName}] creó oportunidad "${created.title}" en etapa ${stage}`, JSON.stringify(created)]
+    );
+
+    res.status(201).json(created);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 1-Click Flip Modality (RENTA_MRR <-> VENTA_CAPEX) inside Kanban Card
+app.patch("/api/deals/:id/flip-modality", async (req, res) => {
+  try {
+    const dealId = Number(req.params.id);
+    const { responsibleName = "Ejecutivo" } = req.body;
+    const existing = await pool.query("SELECT * FROM deals WHERE id = $1", [dealId]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: "Deal not found" });
+
+    const cur = existing.rows[0];
+    const nextModality = cur.modality === "VENTA_CAPEX" ? "RENTA_MRR" : "VENTA_CAPEX";
+
+    const { rows } = await pool.query(
+      `UPDATE deals
+       SET modality = $1,
+           last_changed_by = $2,
+           updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [nextModality, responsibleName, dealId]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('KANBAN_MODALITY_FLIP', $1, $2)`,
+      [
+        `[${responsibleName}] alternó modalidad de "${cur.title}": ${cur.modality} ⇄ ${nextModality}`,
+        JSON.stringify(rows[0]),
+      ]
+    );
+
+    res.json(rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
