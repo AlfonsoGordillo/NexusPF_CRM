@@ -83,6 +83,10 @@
           <span class="kbd-shortcut">Ctrl + K</span>
         </div>
         <div class="topbar-actions">
+          <button class="btn" id="auth-user-pill" onclick="openAuthModal()" style="border-color:rgba(16,185,129,0.5); background:rgba(16,185,129,0.08);" title="Cambiar sesión o autenticar ejecutivo responsable">
+            <span id="auth-avatar-badge" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--accent-emerald); color:#04130d; font-weight:700; font-size:11px;">AG</span>
+            <span id="auth-user-label" style="font-size:12px;">Alfonso Gordillo · <strong style="color:var(--accent-emerald);">Autenticado</strong></span>
+          </button>
           <button class="btn btn-cyan" id="btn-enrich-all">⚡ Enriquecer Todo con Magic AI</button>
           <button class="btn btn-emerald" id="btn-open-zero-admin">+ Ingesta Zero-Admin</button>
         </div>
@@ -205,14 +209,20 @@
           <div class="section-header">
             <div>
               <h1 class="section-title">Pipeline Dual Kanban: Venta Directa (CapEx) vs. Renta Mensual (MRR / AaaS)</h1>
-              <p class="section-desc">Gestiona oportunidades combinando licenciamiento recurrente SaaS/AaaS y proyectos llave en mano con métricas de LTV y margen integradas en cada tarjeta.</p>
+              <p class="section-desc">
+                <strong>🖐️ Drag & Drop Activo con Auditoría IA:</strong> Arrastra cualquier tarjeta entre las 5 columnas para abrir el acta de transición (Responsable Autenticado, Fecha/Hora y Justificación asistida por IA). Cada columna totaliza Renta y Venta en vivo.
+              </p>
             </div>
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; align-items:center;">
               <button class="btn" onclick="filterKanban('ALL')">Todos</button>
               <button class="btn btn-emerald" onclick="filterKanban('RENTA_MRR')">Solo Renta MRR</button>
               <button class="btn btn-gold" onclick="filterKanban('VENTA_CAPEX')">Solo Venta CapEx</button>
+              <button class="btn btn-cyan" onclick="openAuthModal()">🔐 Ejecutivo Activo</button>
             </div>
           </div>
+
+          <div id="kanban-global-summary" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:14px;"></div>
+
           <div class="kanban-board" id="kanban-board-container"></div>
         </section>
 
@@ -512,6 +522,149 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE AUTENTICACIÓN EJECUTIVA & GESTIÓN DE RESPONSABLE -->
+  <div class="modal-backdrop" id="auth-modal">
+    <div class="modal-card" style="max-width:660px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div>
+          <span class="badge badge-renta">Autenticación de Equipo · Trazabilidad & Gobernanza</span>
+          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:6px;">Identidad del Ejecutivo Responsable (Sesión Activa)</h2>
+        </div>
+        <button class="btn" type="button" onclick="closeAuthModal()">✕ Cerrar</button>
+      </div>
+
+      <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">
+        Cada movimiento en el Kanban (Drag & Drop) y cada simulación queda firmada en PostgreSQL con el ejecutivo autenticado. Selecciona tu perfil corporativo o registra un nuevo integrante del equipo:
+      </p>
+
+      <div style="margin-bottom:16px;">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-cyan); text-transform:uppercase; margin-bottom:8px;">
+          Cambio Rápido de Sesión Ejecutiva (1 Clic):
+        </div>
+        <div id="auth-quick-users-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;"></div>
+      </div>
+
+      <div style="padding:14px; background:var(--bg-elevated); border:1px solid var(--border-hairline); border-radius:12px;">
+        <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-gold); text-transform:uppercase; margin-bottom:10px;">
+          Iniciar Sesión con Credenciales o Registrar Nuevo Ejecutivo en PostgreSQL
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">Nombre Completo</label>
+            <input type="text" id="auth-input-name" class="input-field" style="width:100%;" placeholder="Ej. Alfonso Gordillo" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">Correo Corporativo *</label>
+            <input type="email" id="auth-input-email" class="input-field" style="width:100%;" placeholder="alfonso@projectsfactory.io" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">Cargo / Rol Ejecutivo</label>
+            <input type="text" id="auth-input-role" class="input-field" style="width:100%;" placeholder="CEO & Founder" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">PIN / Clave (Demo: nexus2026)</label>
+            <input type="password" id="auth-input-pin" class="input-field" style="width:100%;" value="nexus2026" />
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+          <button class="btn btn-cyan" type="button" onclick="submitAuthForm(false)">🔑 Autenticar Correo</button>
+          <button class="btn btn-emerald" type="button" onclick="submitAuthForm(true)">➕ Registrar & Activar Ejecutivo</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE AUDITORÍA DE TRANSICIÓN DE ETAPA KANBAN (DRAG & DROP) -->
+  <div class="modal-backdrop" id="stage-transition-modal">
+    <div class="modal-card" style="max-width:740px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div>
+          <span class="badge badge-hibrido" id="st-modal-badge">Auditoría de Cambio de Etapa · Kanban Drag & Drop</span>
+          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:6px;" id="st-modal-title">Confirmar Movimiento de Oportunidad</h2>
+        </div>
+        <button class="btn" type="button" onclick="cancelStageTransition()">✕ Cancelar</button>
+      </div>
+
+      <input type="hidden" id="st-deal-id" value="" />
+      <input type="hidden" id="st-from-stage" value="" />
+      <input type="hidden" id="st-to-stage" value="" />
+
+      <div id="st-route-banner" style="padding:12px 14px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:10px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;"></div>
+
+      <div style="display:grid; grid-template-columns: 1.2fr 1fr 0.7fr; gap:12px; margin-bottom:12px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">👤 Ejecutivo Responsable (Autenticado) *</label>
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="st-responsible-name" class="input-field" style="width:100%; background:#08101d; color:var(--accent-emerald); font-weight:600;" readonly />
+            <button class="btn" type="button" onclick="openAuthModal()" title="Cambiar usuario autenticado">🔐</button>
+          </div>
+          <input type="hidden" id="st-responsible-email" />
+          <input type="hidden" id="st-responsible-role" />
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">📅 Fecha y Hora Exacta del Cambio *</label>
+          <input type="datetime-local" id="st-transition-date" class="input-field" style="width:100%;" />
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">🎯 Probabilidad (%)</label>
+          <input type="number" id="st-probability" class="input-field" style="width:100%;" min="5" max="100" step="5" value="75" />
+        </div>
+      </div>
+
+      <!-- AI COPILOT BOX FOR KANBAN TRANSITION -->
+      <div style="padding:12px 14px; background:rgba(56,189,248,0.07); border:1px solid rgba(56,189,248,0.35); border-radius:10px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan); font-weight:700;">
+            ✦ COPILOTO IA DE GOBERNANZA COMERCIAL (GATEKEEPER & AUTO-REDACCIÓN)
+          </span>
+          <button class="btn btn-cyan" type="button" style="padding:5px 10px; font-size:11.5px;" onclick="applyAiTransitionSuggestion()">
+            ✨ Autocompletar Justificación y Próximo Paso con IA
+          </button>
+        </div>
+        <div id="st-ai-checklist" style="font-size:12px; color:var(--text-secondary); line-height:1.5;"></div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <label class="control-label">📝 Acción Tomada / Justificación Ejecutiva del Cambio *</label>
+          <span id="st-quality-badge" style="font-family:var(--font-mono); font-size:11px; color:var(--accent-gold);">Calidad de Evidencia IA: Pendiente</span>
+        </div>
+        <textarea id="st-justification" rows="3" placeholder="Describe qué acción comercial, técnica o financiera se ejecutó con el cliente para justificar el avance de columna..."></textarea>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="control-label" style="display:block; margin-bottom:4px;">🚀 Próximo Hito Comprometido (Next Action)</label>
+        <input type="text" id="st-next-action" class="input-field" style="width:100%;" placeholder="Ej. Enviar propuesta final y agendar comité de cierre..." />
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">
+          Quedará firmado en `deal_stage_history` (PostgreSQL 16)
+        </span>
+        <div style="display:flex; gap:10px;">
+          <button class="btn" type="button" onclick="cancelStageTransition()">Cancelar (Devolver Tarjeta)</button>
+          <button class="btn btn-emerald" type="button" onclick="confirmStageTransition()">
+            ✓ Confirmar Cambio y Guardar Auditoría
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL HISTORIAL DE AUDITORÍA DE UNA OPORTUNIDAD -->
+  <div class="modal-backdrop" id="deal-history-modal">
+    <div class="modal-card" style="max-width:700px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div>
+          <span class="badge badge-renta">Trazabilidad Inmutable · PostgreSQL 16</span>
+          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:6px;" id="dh-modal-title">Historial de Movimientos de la Oportunidad</h2>
+        </div>
+        <button class="btn" type="button" onclick="closeDealHistoryModal()">✕ Cerrar</button>
+      </div>
+      <div id="dh-list-container" style="display:flex; flex-direction:column; gap:10px; max-height:420px; overflow-y:auto;"></div>
     </div>
   </div>
 

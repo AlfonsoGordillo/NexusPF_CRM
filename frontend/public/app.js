@@ -1,10 +1,31 @@
+const savedAuthUser = (() => {
+  try {
+    const raw = localStorage.getItem("nexuspf_auth_user");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+})();
+
 const state = {
   kpis: {},
   products: [],
   accounts: [],
   deals: [],
+  users: [],
+  stageHistory: [],
   activityLogs: [],
   kanbanFilter: "ALL",
+  draggedDealId: null,
+  lastAiSuggestion: null,
+  currentUser: savedAuthUser || {
+    id: 1,
+    name: "Alfonso Gordillo",
+    email: "alfonso@projectsfactory.io",
+    role: "CEO & Founder",
+    brand_focus: "projectsfactory.io & finanactionable.co",
+    avatar_initials: "AG",
+  },
 };
 
 const STAGES = [
@@ -64,8 +85,11 @@ async function loadDashboard() {
     state.products = data.products || [];
     state.accounts = data.accounts || [];
     state.deals = data.deals || [];
+    state.users = data.users || [];
+    state.stageHistory = data.stageHistory || [];
     state.activityLogs = data.activityLogs || [];
 
+    renderAuthUserUI();
     renderDashboardView();
     renderSmartGridView();
     renderKanbanView();
@@ -294,37 +318,141 @@ document.getElementById("btn-grid-enrich-all").addEventListener("click", async (
   showToast("✅ Smart Grid B2B 100% enriquecido.");
 });
 
-// View 3: Dual Pipeline Kanban
+// View 3: Dual Pipeline Kanban (Drag & Drop + Column Totals Renta/Venta + Audited Stage Transitions + Auth)
 window.filterKanban = function (filter) {
   state.kanbanFilter = filter;
   renderKanbanView();
 };
 
+function fmtDateShort(dtStr) {
+  if (!dtStr) return "Hoy";
+  const d = new Date(dtStr);
+  if (Number.isNaN(d.getTime())) return "Hoy";
+  return d.toLocaleString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getLocalDatetimeInputValue(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function renderKanbanView() {
   const board = document.getElementById("kanban-board-container");
+  const summaryBox = document.getElementById("kanban-global-summary");
   const filteredDeals =
     state.kanbanFilter === "ALL"
       ? state.deals
       : state.deals.filter((d) => d.modality === state.kanbanFilter);
 
-  board.innerHTML = STAGES.map((st, idx) => {
+  // Global Kanban Totals Bar
+  if (summaryBox) {
+    const totalMrrAll = filteredDeals.reduce((acc, d) => acc + Number(d.mrr_usd || 0), 0);
+    const totalBuyoutAll = filteredDeals.reduce((acc, d) => acc + Number(d.buyout_dynamic_usd || 0), 0);
+    const totalCombinedAll = filteredDeals.reduce(
+      (acc, d) =>
+        acc + (d.modality === "VENTA_CAPEX" ? Number(d.buyout_dynamic_usd || 0) : Number(d.ltv_24m_usd || 0)),
+      0
+    );
+    const weightedAll = filteredDeals.reduce(
+      (acc, d) =>
+        acc +
+        (d.modality === "VENTA_CAPEX" ? Number(d.buyout_dynamic_usd || 0) : Number(d.ltv_24m_usd || 0)) *
+          (Number(d.probability || 50) / 100),
+      0
+    );
+
+    summaryBox.innerHTML = `
+      <div class="kpi-card emerald-top" style="padding:12px 16px;">
+        <div class="kpi-label">Total Renta Mensual (Pipeline MRR)</div>
+        <div class="kpi-value" style="font-size:21px; color:var(--accent-emerald);">${fmtUsd(totalMrrAll)}/mes</div>
+        <div class="kpi-sub">ARR Potencial: <strong>${fmtUsd(totalMrrAll * 12)}/año</strong></div>
+      </div>
+      <div class="kpi-card gold-top" style="padding:12px 16px;">
+        <div class="kpi-label">Total Venta Directa (Equiv. Buyout CapEx)</div>
+        <div class="kpi-value" style="font-size:21px; color:var(--accent-gold);">${fmtUsd(totalBuyoutAll)}</div>
+        <div class="kpi-sub">Valor Llave en Mano Acumulado</div>
+      </div>
+      <div class="kpi-card cyan-top" style="padding:12px 16px;">
+        <div class="kpi-label">Valor Total Pipeline (Renta 24m + Venta)</div>
+        <div class="kpi-value" style="font-size:21px; color:var(--accent-cyan);">${fmtUsd(totalCombinedAll)}</div>
+        <div class="kpi-sub">${filteredDeals.length} oportunidades activas en tablero</div>
+      </div>
+      <div class="kpi-card" style="padding:12px 16px;">
+        <div class="kpi-label">Forecast Ponderado por Probabilidad IA</div>
+        <div class="kpi-value" style="font-size:21px;">${fmtUsd(weightedAll)}</div>
+        <div class="kpi-sub">Ejecutivo Activo: <strong style="color:var(--accent-emerald);">${state.currentUser.name}</strong></div>
+      </div>
+    `;
+  }
+
+  board.innerHTML = STAGES.map((st) => {
     const colDeals = filteredDeals.filter((d) => d.stage === st.id);
-    const nextStage = STAGES[idx + 1] ? STAGES[idx + 1].id : null;
+
+    // Per-column Renta & Venta Totals
+    const colRentMrr = colDeals.reduce((acc, d) => acc + Number(d.mrr_usd || 0), 0);
+    const colSaleBuyout = colDeals.reduce((acc, d) => acc + Number(d.buyout_dynamic_usd || 0), 0);
+    const colCombinedValue = colDeals.reduce(
+      (acc, d) =>
+        acc + (d.modality === "VENTA_CAPEX" ? Number(d.buyout_dynamic_usd || 0) : Number(d.ltv_24m_usd || 0)),
+      0
+    );
 
     return `
-      <div class="kanban-col">
+      <div class="kanban-col"
+           data-stage="${st.id}"
+           ondragover="handleKanbanDragOver(event)"
+           ondragleave="handleKanbanDragLeave(event)"
+           ondrop="handleKanbanDrop(event, '${st.id}')">
         <div class="kanban-col-header">
           <span>${st.label}</span>
           <span class="nav-tag">${colDeals.length}</span>
         </div>
+
+        <div class="kanban-totals-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+            <span style="color:var(--text-muted);">Total Etapa:</span>
+            <strong style="font-size:12px; color:var(--text-primary);">${fmtUsd(colCombinedValue)}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; color:var(--accent-emerald);">
+            <span>● Renta MRR:</span>
+            <strong>${fmtUsd(colRentMrr)}/m</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; color:var(--accent-gold);">
+            <span>● Venta CapEx:</span>
+            <strong>${fmtUsd(colSaleBuyout)}</strong>
+          </div>
+        </div>
+
+        ${
+          colDeals.length === 0
+            ? `<div style="border:1px dashed #1e293b; border-radius:8px; padding:22px 10px; text-align:center; font-size:11.5px; color:var(--text-muted);">
+                 Arrastra una tarjeta aquí para mover a <strong>${st.label}</strong>
+               </div>`
+            : ""
+        }
+
         ${colDeals
-          .map(
-            (d) => `
-            <div class="deal-card">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
+          .map((d) => {
+            const histCount = state.stageHistory.filter((h) => Number(h.deal_id) === Number(d.id)).length;
+            const lastBy = d.last_changed_by || "Alfonso Gordillo";
+            const lastAt = fmtDateShort(d.last_stage_change_at || d.updated_at);
+
+            return `
+            <div class="deal-card"
+                 draggable="true"
+                 data-deal-id="${d.id}"
+                 ondragstart="handleKanbanDragStart(event, ${d.id})"
+                 ondragend="handleKanbanDragEnd(event)">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                 ${modalityBadge(d.modality)}
-                <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary);">${d.probability}%</span>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan); font-weight:700;">${d.probability}% prob.</span>
               </div>
+
               <div class="deal-card-title">${d.title}</div>
               <div class="deal-card-company">${d.company_name || ""} · <span style="color:var(--accent-cyan);">${d.brand}</span></div>
 
@@ -343,31 +471,409 @@ function renderKanbanView() {
                 </div>
               </div>
 
-              <div style="display:flex; gap:6px; justify-content:space-between;">
+              <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:8px; padding:5px 7px; background:rgba(15,23,42,0.7); border-radius:6px; border-left:2px solid var(--accent-emerald);">
+                <div>👤 <strong>${lastBy}</strong> · ${lastAt}</div>
+                <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-secondary);" title="${(d.last_justification || d.next_action || "").replace(/"/g, "&quot;")}">
+                  📝 ${d.last_justification || d.next_action || "Calificación inicial"}
+                </div>
+              </div>
+
+              <div style="display:flex; gap:6px; justify-content:space-between; align-items:center;">
                 <button class="btn" style="padding:5px 8px; font-size:11px;" onclick="openDealInStudio(${d.id})">📈 Simular</button>
-                ${
-                  nextStage
-                    ? `<button class="btn btn-emerald" style="padding:5px 8px; font-size:11px;" onclick="advanceDealStage(${d.id}, '${nextStage}')">Avanzar →</button>`
-                    : `<span class="badge badge-renta">✓ Ganado</span>`
-                }
+                <button class="btn btn-cyan" style="padding:5px 8px; font-size:11px;" onclick="openDealHistoryModal(${d.id})" title="Ver auditoría de cambios de etapa">
+                  📜 Historial (${histCount || 1})
+                </button>
+                <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);" title="Arrastra con el mouse a otra columna">⠿ Drag</span>
               </div>
             </div>
-          `
-          )
+          `;
+          })
           .join("")}
       </div>
     `;
   }).join("");
 }
 
-window.advanceDealStage = async function (dealId, nextStage) {
-  await fetch(`/api/deals/${dealId}/stage`, {
+// HTML5 Drag & Drop Handlers for Kanban
+window.handleKanbanDragStart = function (event, dealId) {
+  state.draggedDealId = Number(dealId);
+  event.dataTransfer.setData("text/plain", String(dealId));
+  event.dataTransfer.effectAllowed = "move";
+  setTimeout(() => {
+    if (event.target && event.target.classList) {
+      event.target.classList.add("dragging");
+    }
+  }, 0);
+};
+
+window.handleKanbanDragEnd = function (event) {
+  if (event.target && event.target.classList) {
+    event.target.classList.remove("dragging");
+  }
+  document.querySelectorAll(".kanban-col.drag-over").forEach((col) => col.classList.remove("drag-over"));
+};
+
+window.handleKanbanDragOver = function (event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  const col = event.currentTarget;
+  if (col && !col.classList.contains("drag-over")) {
+    col.classList.add("drag-over");
+  }
+};
+
+window.handleKanbanDragLeave = function (event) {
+  const col = event.currentTarget;
+  if (col) {
+    col.classList.remove("drag-over");
+  }
+};
+
+window.handleKanbanDrop = function (event, targetStage) {
+  event.preventDefault();
+  const col = event.currentTarget;
+  if (col) col.classList.remove("drag-over");
+
+  const dealId = Number(event.dataTransfer.getData("text/plain") || state.draggedDealId);
+  const deal = state.deals.find((d) => Number(d.id) === dealId);
+  if (!deal) return;
+
+  if (deal.stage === targetStage) {
+    showToast(`ℹ️ La oportunidad ya se encuentra en la columna ${targetStage}.`);
+    return;
+  }
+
+  openStageTransitionModal(deal, deal.stage, targetStage);
+};
+
+// Stage Transition Audit Modal & AI Copilot
+const stageModal = document.getElementById("stage-transition-modal");
+
+async function openStageTransitionModal(deal, fromStage, toStage) {
+  if (!stageModal) return;
+
+  const fromLabel = STAGES.find((s) => s.id === fromStage)?.label || fromStage;
+  const toLabel = STAGES.find((s) => s.id === toStage)?.label || toStage;
+
+  document.getElementById("st-deal-id").value = String(deal.id);
+  document.getElementById("st-from-stage").value = fromStage;
+  document.getElementById("st-to-stage").value = toStage;
+
+  document.getElementById("st-modal-title").textContent = `${deal.title} (${deal.company_name || "Cliente B2B"})`;
+  document.getElementById("st-route-banner").innerHTML = `
+    <div>
+      <div style="font-size:11px; font-family:var(--font-mono); color:var(--text-secondary);">TRANSICIÓN SOLICITADA EN KANBAN</div>
+      <div style="font-size:15px; font-weight:700; margin-top:2px;">
+        <span style="color:var(--text-muted);">${fromLabel}</span>
+        <span style="color:var(--accent-emerald); margin:0 8px;">➔</span>
+        <span style="color:var(--accent-emerald);">${toLabel}</span>
+      </div>
+    </div>
+    <div style="text-align:right; font-family:var(--font-mono); font-size:11.5px;">
+      <div>Renta: <strong style="color:var(--accent-emerald);">${fmtUsd(deal.mrr_usd)}/m</strong></div>
+      <div>Venta: <strong style="color:var(--accent-gold);">${fmtUsd(deal.buyout_dynamic_usd)}</strong></div>
+    </div>
+  `;
+
+  // Populate Authenticated Responsible Executive & Current DateTime
+  document.getElementById("st-responsible-name").value = `${state.currentUser.name} (${state.currentUser.role})`;
+  document.getElementById("st-responsible-email").value = state.currentUser.email;
+  document.getElementById("st-responsible-role").value = state.currentUser.role;
+  document.getElementById("st-transition-date").value = getLocalDatetimeInputValue(new Date());
+  document.getElementById("st-justification").value = "";
+  document.getElementById("st-next-action").value = deal.next_action || "";
+  updateJustificationQualityBadge("");
+
+  document.getElementById("st-ai-checklist").innerHTML =
+    "⏳ Consultando al Copiloto IA FinActionable para generar checklist de gobernanza y sugerencia...";
+
+  stageModal.classList.add("open");
+  document.getElementById("st-justification").focus();
+
+  // Fetch AI suggestion for this deal & stage transition
+  try {
+    const res = await fetch("/api/ai/suggest-transition", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dealId: deal.id,
+        fromStage,
+        toStage,
+        responsibleName: state.currentUser.name,
+      }),
+    });
+    const suggestion = await res.json();
+    state.lastAiSuggestion = suggestion;
+
+    if (suggestion && suggestion.ok) {
+      document.getElementById("st-probability").value = suggestion.recommendedProbability;
+      document.getElementById("st-next-action").value = suggestion.recommendedNextAction;
+      document.getElementById("st-ai-checklist").innerHTML = `
+        <div style="margin-bottom:6px; color:var(--text-primary); font-weight:600;">
+          Checklist Gatekeeper sugerido por IA para validar el pase a <em>${toLabel}</em>:
+        </div>
+        <ul style="margin:0 0 8px 18px; padding:0;">
+          ${(suggestion.checklist || []).map((item) => `<li>${item}</li>`).join("")}
+        </ul>
+        <div style="padding:6px 10px; border-radius:6px; background:rgba(16,185,129,0.1); border-left:3px solid var(--accent-emerald); color:var(--accent-emerald); font-size:11.5px;">
+          💡 <strong>Insight IA:</strong> ${suggestion.riskInsight}
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.error("AI suggest transition error:", err);
+  }
+}
+
+function updateJustificationQualityBadge(text) {
+  const badge = document.getElementById("st-quality-badge");
+  if (!badge) return;
+  const len = (text || "").trim().length;
+  if (len === 0) {
+    badge.style.color = "var(--accent-rose)";
+    badge.textContent = "Calidad de Evidencia IA: Obligatoria (0%)";
+  } else if (len < 30) {
+    badge.style.color = "var(--accent-gold)";
+    badge.textContent = "Calidad de Evidencia IA: Básica (65%) — Agrega más contexto";
+  } else {
+    badge.style.color = "var(--accent-emerald)";
+    badge.textContent = "✓ Calidad de Evidencia IA: Óptima (96% Audit-Ready)";
+  }
+}
+
+const stJustificationEl = document.getElementById("st-justification");
+if (stJustificationEl) {
+  stJustificationEl.addEventListener("input", (e) => updateJustificationQualityBadge(e.target.value));
+}
+
+window.applyAiTransitionSuggestion = function () {
+  if (!state.lastAiSuggestion) return;
+  const justEl = document.getElementById("st-justification");
+  const nextEl = document.getElementById("st-next-action");
+  const probEl = document.getElementById("st-probability");
+
+  justEl.value = state.lastAiSuggestion.suggestedJustification || "";
+  if (state.lastAiSuggestion.recommendedNextAction) {
+    nextEl.value = state.lastAiSuggestion.recommendedNextAction;
+  }
+  if (state.lastAiSuggestion.recommendedProbability) {
+    probEl.value = state.lastAiSuggestion.recommendedProbability;
+  }
+  updateJustificationQualityBadge(justEl.value);
+  showToast("✨ Copiloto IA redactó la justificación ejecutiva y el próximo hito.");
+};
+
+window.cancelStageTransition = function () {
+  if (stageModal) stageModal.classList.remove("open");
+  state.draggedDealId = null;
+  renderKanbanView();
+};
+
+window.confirmStageTransition = async function () {
+  const dealId = Number(document.getElementById("st-deal-id").value);
+  const toStage = document.getElementById("st-to-stage").value;
+  const transitionDate = document.getElementById("st-transition-date").value;
+  const justification = document.getElementById("st-justification").value.trim();
+  const nextAction = document.getElementById("st-next-action").value.trim();
+  const probability = Number(document.getElementById("st-probability").value || 75);
+
+  if (!justification || justification.length < 8) {
+    showToast("⚠️ Por favor ingresa la acción tomada que justifica el cambio (o pulsa el botón de IA).");
+    document.getElementById("st-justification").focus();
+    return;
+  }
+
+  const res = await fetch(`/api/deals/${dealId}/stage`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ stage: nextStage }),
+    body: JSON.stringify({
+      stage: toStage,
+      responsibleName: state.currentUser.name,
+      responsibleEmail: state.currentUser.email,
+      responsibleRole: state.currentUser.role,
+      transitionDate: transitionDate ? new Date(transitionDate).toISOString() : new Date().toISOString(),
+      justification,
+      nextAction,
+      probability,
+    }),
   });
+
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(`⚠️ ${data.error || "Error al guardar el cambio de etapa"}`);
+    return;
+  }
+
+  if (stageModal) stageModal.classList.remove("open");
   await loadDashboard();
-  showToast(`✅ Oportunidad #${dealId} movida a ${nextStage}.`);
+  showToast(`✅ Etapa actualizada a ${toStage} y firmada por ${state.currentUser.name}.`);
+};
+
+// Deal Audit History Modal
+const historyModal = document.getElementById("deal-history-modal");
+
+window.openDealHistoryModal = async function (dealId) {
+  if (!historyModal) return;
+  const deal = state.deals.find((d) => Number(d.id) === Number(dealId));
+  document.getElementById("dh-modal-title").textContent = deal
+    ? `Auditoría de Movimientos: ${deal.title}`
+    : `Historial de Oportunidad #${dealId}`;
+
+  const container = document.getElementById("dh-list-container");
+  container.innerHTML = "<div style='font-size:12.5px; color:var(--text-secondary);'>Cargando historial desde PostgreSQL...</div>";
+  historyModal.classList.add("open");
+
+  const res = await fetch(`/api/deals/${dealId}/history`);
+  const rows = await res.json();
+
+  if (!rows || rows.length === 0) {
+    container.innerHTML = "<div style='font-size:12.5px; color:var(--text-muted);'>Sin movimientos registrados aún.</div>";
+    return;
+  }
+
+  container.innerHTML = rows
+    .map(
+      (h) => `
+      <div style="padding:12px 14px; background:var(--bg-elevated); border:1px solid var(--border-hairline); border-left:3px solid var(--accent-emerald); border-radius:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-family:var(--font-mono); font-size:11.5px; font-weight:700; color:var(--accent-emerald);">
+            ${h.from_stage} ➔ ${h.to_stage}
+          </span>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">
+            📅 ${new Date(h.transition_date).toLocaleString("es-CO")}
+          </span>
+        </div>
+        <div style="font-size:12px; color:var(--accent-cyan); margin-bottom:6px;">
+          👤 <strong>${h.responsible_name}</strong> (${h.responsible_role || "Ejecutivo"}) · <code>${h.responsible_email}</code>
+        </div>
+        <div style="font-size:13px; color:var(--text-primary); line-height:1.45; margin-bottom:6px;">
+          <strong>Acción Tomada / Justificación:</strong> ${h.justification}
+        </div>
+        ${
+          h.next_action
+            ? `<div style="font-size:11.5px; color:var(--text-secondary);">🚀 <strong>Próximo Paso:</strong> ${h.next_action}</div>`
+            : ""
+        }
+      </div>
+    `
+    )
+    .join("");
+};
+
+window.closeDealHistoryModal = function () {
+  if (historyModal) historyModal.classList.remove("open");
+};
+
+// Authentication Modal & Session Management
+const authModal = document.getElementById("auth-modal");
+
+function renderAuthUserUI() {
+  const u = state.currentUser;
+  const badge = document.getElementById("auth-avatar-badge");
+  const label = document.getElementById("auth-user-label");
+  if (badge) badge.textContent = u.avatar_initials || "AG";
+  if (label) {
+    label.innerHTML = `${u.name} · <strong style="color:var(--accent-emerald);">${u.role}</strong>`;
+  }
+
+  // Also update modal fields if open
+  const stResp = document.getElementById("st-responsible-name");
+  if (stResp) {
+    stResp.value = `${u.name} (${u.role})`;
+    document.getElementById("st-responsible-email").value = u.email;
+    document.getElementById("st-responsible-role").value = u.role;
+  }
+
+  const grid = document.getElementById("auth-quick-users-grid");
+  if (grid && state.users.length > 0) {
+    grid.innerHTML = state.users
+      .map((usr) => {
+        const isCurrent = usr.email.toLowerCase() === u.email.toLowerCase();
+        return `
+          <div onclick="switchActiveExecutive(${usr.id})"
+               style="padding:10px 12px; border-radius:10px; cursor:pointer; border:1px solid ${
+                 isCurrent ? "var(--accent-emerald)" : "var(--border-hairline)"
+               }; background:${isCurrent ? "rgba(16,185,129,0.12)" : "var(--bg-elevated)"}; display:flex; align-items:center; gap:10px;">
+            <div style="width:32px; height:32px; border-radius:50%; background:${
+              isCurrent ? "var(--accent-emerald)" : "#1e293b"
+            }; color:${isCurrent ? "#03150e" : "#f8fafc"}; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;">
+              ${usr.avatar_initials}
+            </div>
+            <div style="flex:1; overflow:hidden;">
+              <div style="font-size:12.5px; font-weight:700; color:var(--text-primary);">${usr.name} ${
+          isCurrent ? "✓" : ""
+        }</div>
+              <div style="font-size:11px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${
+                usr.role
+              }</div>
+              <div style="font-family:var(--font-mono); font-size:10px; color:var(--accent-cyan);">${usr.email}</div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+}
+
+window.openAuthModal = function () {
+  if (!authModal) return;
+  renderAuthUserUI();
+  document.getElementById("auth-input-name").value = state.currentUser.name || "";
+  document.getElementById("auth-input-email").value = state.currentUser.email || "";
+  document.getElementById("auth-input-role").value = state.currentUser.role || "";
+  authModal.classList.add("open");
+};
+
+window.closeAuthModal = function () {
+  if (authModal) authModal.classList.remove("open");
+};
+
+window.switchActiveExecutive = async function (userId) {
+  const found = state.users.find((u) => Number(u.id) === Number(userId));
+  if (!found) return;
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: found.email, accessPin: "nexus2026" }),
+  });
+  const data = await res.json();
+  if (res.ok && data.user) {
+    state.currentUser = data.user;
+    localStorage.setItem("nexuspf_auth_user", JSON.stringify(data.user));
+    renderAuthUserUI();
+    renderKanbanView();
+    closeAuthModal();
+    showToast(`🔐 Sesión ejecutiva activa: ${data.user.name} (${data.user.role}).`);
+  }
+};
+
+window.submitAuthForm = async function (isRegister = false) {
+  const name = document.getElementById("auth-input-name").value.trim();
+  const email = document.getElementById("auth-input-email").value.trim();
+  const role = document.getElementById("auth-input-role").value.trim();
+  const accessPin = document.getElementById("auth-input-pin").value.trim();
+
+  if (!email) {
+    showToast("⚠️ Ingresa el correo corporativo del ejecutivo.");
+    return;
+  }
+
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, accessPin, name, role, isRegister }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(`⚠️ ${data.error || "Error de autenticación"}`);
+    return;
+  }
+
+  state.currentUser = data.user;
+  localStorage.setItem("nexuspf_auth_user", JSON.stringify(data.user));
+  await loadDashboard();
+  closeAuthModal();
+  showToast(`🔐 Autenticado como ${data.user.name} (${data.user.role}).`);
 };
 
 window.openDealInStudio = function (dealId) {

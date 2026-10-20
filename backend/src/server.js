@@ -95,8 +95,171 @@ function computeFinActionableEconomics({
 }
 
 // ---------------------------------------------------------------------------
-// 1. Health & System Identity
+// 0. Automatic Schema Migration: Users (Authentication) & Kanban Audit Trail
 // ---------------------------------------------------------------------------
+async function ensureAuthAndKanbanSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(120) NOT NULL,
+        email VARCHAR(140) UNIQUE NOT NULL,
+        role VARCHAR(100) NOT NULL,
+        brand_focus VARCHAR(60) DEFAULT 'projectsfactory.io & finanactionable.co',
+        avatar_initials VARCHAR(6) NOT NULL,
+        access_pin VARCHAR(40) DEFAULT 'nexus2026',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS deal_stage_history (
+        id SERIAL PRIMARY KEY,
+        deal_id INT REFERENCES deals(id) ON DELETE CASCADE,
+        from_stage VARCHAR(40) NOT NULL,
+        to_stage VARCHAR(40) NOT NULL,
+        responsible_name VARCHAR(120) NOT NULL,
+        responsible_email VARCHAR(140) NOT NULL,
+        responsible_role VARCHAR(100) DEFAULT 'Executive',
+        transition_date TIMESTAMP NOT NULL DEFAULT NOW(),
+        justification TEXT NOT NULL,
+        next_action TEXT,
+        ai_confidence_score INT DEFAULT 92,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_changed_by VARCHAR(120) DEFAULT 'Alfonso Gordillo';
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_changed_role VARCHAR(100) DEFAULT 'CEO & Founder';
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_stage_change_at TIMESTAMP DEFAULT NOW();
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_justification TEXT DEFAULT 'Oportunidad inicial calificada por comité comercial.';
+    `);
+
+    const userCount = await pool.query("SELECT COUNT(*)::int AS cnt FROM users");
+    if (userCount.rows[0].cnt === 0) {
+      await pool.query(`
+        INSERT INTO users (name, email, role, brand_focus, avatar_initials, access_pin)
+        VALUES
+          ('Alfonso Gordillo', 'alfonso@projectsfactory.io', 'CEO & Founder', 'projectsfactory.io & finanactionable.co', 'AG', 'nexus2026'),
+          ('Valeria Mendoza', 'valeria@finanactionable.co', 'Chief Revenue & FinActionable AI Officer', 'finanactionable.co', 'VM', 'nexus2026'),
+          ('Sebastián Ríos', 'sebastian@projectsfactory.io', 'Lead AI & Cloud Architect', 'projectsfactory.io', 'SR', 'nexus2026'),
+          ('Camila Herrera', 'camila@finanactionable.co', 'Enterprise Account Executive', 'finanactionable.co', 'CH', 'nexus2026')
+        ON CONFLICT (email) DO NOTHING;
+      `);
+    }
+
+    const histCount = await pool.query("SELECT COUNT(*)::int AS cnt FROM deal_stage_history");
+    if (histCount.rows[0].cnt === 0) {
+      const dealsRes = await pool.query("SELECT id, stage, next_action FROM deals ORDER BY id ASC");
+      for (const d of dealsRes.rows) {
+        await pool.query(
+          `INSERT INTO deal_stage_history
+            (deal_id, from_stage, to_stage, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
+           VALUES ($1, 'DISCOVERY', $2, 'Alfonso Gordillo', 'alfonso@projectsfactory.io', 'CEO & Founder', NOW() - INTERVAL '2 days', $3, $4, 94)`,
+          [
+            d.id,
+            d.stage,
+            `Apertura y calificación técnica-financiera en comité de ${d.stage}. Validado encaje de producto y presupuesto con decisor.`,
+            d.next_action || "Ejecutar siguiente hito del pipeline",
+          ]
+        );
+      }
+    }
+    console.log("[NexusPF-CRM] Auth & Kanban Audit Schema verified.");
+  } catch (err) {
+    console.error("[NexusPF-CRM] Schema migration notice:", err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 1. Health & System Identity + Authentication Endpoints
+// ---------------------------------------------------------------------------
+app.get("/api/auth/users", async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT id, name, email, role, brand_focus, avatar_initials, created_at FROM users ORDER BY id ASC"
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, accessPin = "nexus2026", name, role, brand_focus, isRegister = false } = req.body;
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ error: "El correo corporativo es obligatorio." });
+    }
+    const cleanEmail = String(email).trim().toLowerCase();
+
+    if (isRegister) {
+      if (!name || !String(name).trim()) {
+        return res.status(400).json({ error: "El nombre completo es obligatorio para registrar un ejecutivo." });
+      }
+      const parts = String(name).trim().split(/\s+/);
+      const initials = ((parts[0]?.[0] || "E") + (parts[1]?.[0] || "X")).toUpperCase();
+      const insertRes = await pool.query(
+        `INSERT INTO users (name, email, role, brand_focus, avatar_initials, access_pin)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (email) DO UPDATE
+           SET name = EXCLUDED.name,
+               role = EXCLUDED.role,
+               brand_focus = EXCLUDED.brand_focus
+         RETURNING id, name, email, role, brand_focus, avatar_initials`,
+        [
+          String(name).trim(),
+          cleanEmail,
+          role || "Executive Account Manager",
+          brand_focus || "projectsfactory.io & finanactionable.co",
+          initials,
+          accessPin || "nexus2026",
+        ]
+      );
+      const newUser = insertRes.rows[0];
+      await pool.query(
+        `INSERT INTO activity_logs (event_type, summary, structured_payload)
+         VALUES ('AUTH_EXECUTIVE_LOGIN', $1, $2)`,
+        [`Ejecutivo registrado y autenticado: ${newUser.name} (${newUser.role})`, JSON.stringify(newUser)]
+      );
+      return res.json({
+        ok: true,
+        token: `nxpf_jwt_${newUser.id}_${Date.now()}`,
+        user: newUser,
+      });
+    }
+
+    const userRes = await pool.query("SELECT * FROM users WHERE LOWER(email) = $1", [cleanEmail]);
+    if (userRes.rows.length === 0) {
+      return res.status(401).json({ error: "Usuario no encontrado. Puedes registrarlo en la pestaña 'Nuevo Ejecutivo'." });
+    }
+    const u = userRes.rows[0];
+    if (accessPin && u.access_pin && String(accessPin).trim() !== String(u.access_pin).trim()) {
+      return res.status(401).json({ error: "PIN / Clave ejecutiva incorrecta (Clave demo: nexus2026)." });
+    }
+
+    const safeUser = {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      brand_focus: u.brand_focus,
+      avatar_initials: u.avatar_initials,
+    };
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('AUTH_EXECUTIVE_LOGIN', $1, $2)`,
+      [`Sesión autenticada activa: ${safeUser.name} (${safeUser.role})`, JSON.stringify(safeUser)]
+    );
+
+    res.json({
+      ok: true,
+      token: `nxpf_jwt_${safeUser.id}_${Date.now()}`,
+      user: safeUser,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/health", async (_req, res) => {
   try {
     const dbCheck = await pool.query("SELECT NOW() AS server_time");
@@ -119,7 +282,7 @@ app.get("/api/health", async (_req, res) => {
 // ---------------------------------------------------------------------------
 app.get("/api/dashboard", async (_req, res) => {
   try {
-    const [productsRes, accountsRes, dealsRes, logsRes] = await Promise.all([
+    const [productsRes, accountsRes, dealsRes, logsRes, usersRes, histRes] = await Promise.all([
       pool.query("SELECT * FROM digital_products ORDER BY id ASC"),
       pool.query("SELECT * FROM accounts ORDER BY id ASC"),
       pool.query(`
@@ -131,6 +294,8 @@ app.get("/api/dashboard", async (_req, res) => {
         ORDER BY d.updated_at DESC, d.id ASC
       `),
       pool.query("SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 12"),
+      pool.query("SELECT id, name, email, role, brand_focus, avatar_initials FROM users ORDER BY id ASC"),
+      pool.query("SELECT * FROM deal_stage_history ORDER BY transition_date DESC, id DESC LIMIT 100"),
     ]);
 
     const products = productsRes.rows;
@@ -174,6 +339,8 @@ app.get("/api/dashboard", async (_req, res) => {
       products,
       accounts,
       deals,
+      users: usersRes.rows,
+      stageHistory: histRes.rows,
       activityLogs: logsRes.rows,
     });
   } catch (error) {
@@ -630,44 +797,211 @@ app.post("/api/zero-admin", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. Pipeline Stage Transition & Deal Updates
+// 6. Pipeline Stage Transition (Drag & Drop Audited), History & AI Copilot
 // ---------------------------------------------------------------------------
+app.get("/api/deals/:id/history", async (req, res) => {
+  try {
+    const dealId = Number(req.params.id);
+    const { rows } = await pool.query(
+      "SELECT * FROM deal_stage_history WHERE deal_id = $1 ORDER BY transition_date DESC, id DESC",
+      [dealId]
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/ai/suggest-transition", async (req, res) => {
+  try {
+    const { dealId, fromStage = "DISCOVERY", toStage = "SIMULACION_FINACTIONABLE", responsibleName = "Ejecutivo" } = req.body;
+    const dealRes = await pool.query(
+      `SELECT d.*, a.company_name, a.contact_name, a.contact_role, p.name AS product_name
+       FROM deals d
+       LEFT JOIN accounts a ON d.account_id = a.id
+       LEFT JOIN digital_products p ON d.product_id = p.id
+       WHERE d.id = $1`,
+      [Number(dealId)]
+    );
+    if (dealRes.rows.length === 0) {
+      return res.status(404).json({ error: "Oportunidad no encontrada." });
+    }
+    const d = dealRes.rows[0];
+    const company = d.company_name || "Cliente B2B";
+    const contact = d.contact_name || "Decisor Ejecutivo";
+    const product = d.product_name || d.title;
+    const mrr = Number(d.mrr_usd || 900).toLocaleString("en-US");
+    const buyout = Number(d.buyout_dynamic_usd || 20000).toLocaleString("en-US");
+    const eqMonths = d.breakeven_months || 20;
+
+    const stagePlaybook = {
+      DISCOVERY: {
+        probability: 35,
+        justification: `Se reabre validación de Discovery con ${contact} (${company}) para recalibrar alcance técnico de ${product} y confirmar volumen operativo mensual.`,
+        nextAction: `Agendar sesión de diagnóstico de arquitectura con ${contact}`,
+        checklist: [
+          "Dolor operativo y presupuesto preliminar identificados",
+          "Decisor financiero o técnico mapeado en la cuenta",
+          "Modalidad tentativa (Venta CapEx vs. Renta MRR) perfilada",
+        ],
+        riskInsight: "Riesgo bajo: etapa de descubrimiento inicial. Priorizar cuantificación de ahorro operativo.",
+      },
+      SIMULACION_FINACTIONABLE: {
+        probability: 75,
+        justification: `Reunión completada con ${contact} (${company}). Se estructuró escenario FinActionable comparando Renta Mensual ($${mrr}/mes) vs. Venta Llave en Mano ($${buyout} USD) con punto de equilibrio en el mes ${eqMonths}.`,
+        nextAction: `Presentar dictamen comparativo CapEx vs. OpEx al comité financiero de ${company}`,
+        checklist: [
+          "Escenario de Renta MRR vs. Venta Buyout corrido en FinActionable Studio",
+          "Punto de equilibrio (Mes " + eqMonths + ") y LTV a 24 meses validados",
+          "Costos de infraestructura Render/Firebase cubiertos con margen > 85%",
+        ],
+        riskInsight: `FinActionable AI sugiere destacar que la modalidad ${d.modality} optimiza el flujo de caja de ${company} desde el primer trimestre.`,
+      },
+      DEMO_TECNICA: {
+        probability: 65,
+        justification: `Sesión de arquitectura y Demo Técnica en vivo aprobada por el equipo de ${company} sobre ${product}. Validada integración vía API/MCP y despliegue en Docker/Render.`,
+        nextAction: `Entregar sandbox técnico y acta de validación de requerimientos a ${contact}`,
+        checklist: [
+          "Demo funcional del producto digital o agente IA ejecutada en vivo",
+          "Requerimientos de seguridad, aislamiento de tenant y latencia aprobados",
+          "Caso de uso real de la empresa probado con datos muestra",
+        ],
+        riskInsight: "Momento clave para asegurar el patrocinio técnico antes de pasar a propuesta económica final.",
+      },
+      NEGOCIACION: {
+        probability: 88,
+        justification: `${contact} (${company}) aprobó la propuesta técnica y financiera en modalidad ${d.modality} ($${mrr}/mes Renta | $${buyout} Buyout). Se inicia revisión de contrato SLA y anexo de propiedad intelectual.`,
+        nextAction: `Enviar borrador final de contrato (${d.modality}) y cronograma de Kick-off`,
+        checklist: [
+          "Modalidad definitiva (Venta CapEx o Renta SaaS/AaaS) seleccionada por el cliente",
+          "Términos de Setup Fee, SLA y costos cloud revisados con compras/legal",
+          "Fecha objetivo de firma y despliegue comprometida",
+        ],
+        riskInsight: `Alta probabilidad de cierre (88%). Ofrecer descuento del 10% en Setup Fee si firman antes de fin de semana.`,
+      },
+      CERRADO_GANADO: {
+        probability: 100,
+        justification: `Contrato firmado por ${contact} (${company}) bajo modalidad ${d.modality} para ${product}. Orden de facturación emitida y aprovisionamiento de infraestructura iniciado por ${responsibleName}.`,
+        nextAction: `Ejecutar Kick-off de implementación y activar tenant en Render / Firebase`,
+        checklist: [
+          "Contrato comercial y acuerdo de nivel de servicio (SLA) firmados",
+          "Factura de Setup Fee o primer hito CapEx emitida",
+          "Repositorio / Tenant aprovisionado para entrega al cliente",
+        ],
+        riskInsight: "¡Negocio ganado! El motor incrementará automáticamente los indicadores de Revenue activo.",
+      },
+    };
+
+    const selected = stagePlaybook[toStage] || stagePlaybook.SIMULACION_FINACTIONABLE;
+    res.json({
+      ok: true,
+      dealId: d.id,
+      fromStage,
+      toStage,
+      recommendedProbability: selected.probability,
+      suggestedJustification: selected.justification,
+      recommendedNextAction: selected.nextAction,
+      checklist: selected.checklist,
+      riskInsight: selected.riskInsight,
+      aiConfidenceScore: 96,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.patch("/api/deals/:id/stage", async (req, res) => {
   try {
     const dealId = Number(req.params.id);
-    const { stage, modality } = req.body;
+    const {
+      stage,
+      modality,
+      responsibleName,
+      responsibleEmail,
+      responsibleRole = "Executive",
+      transitionDate,
+      justification,
+      nextAction,
+      probability: customProb,
+    } = req.body;
+
+    if (!responsibleName || !String(responsibleName).trim()) {
+      return res.status(401).json({ error: "Autenticación requerida: debe identificarse el ejecutivo responsable del cambio." });
+    }
+    if (!justification || String(justification).trim().length < 8) {
+      return res.status(400).json({ error: "Debe registrar la acción tomada / justificación ejecutiva del cambio de etapa." });
+    }
+
+    const existingRes = await pool.query("SELECT * FROM deals WHERE id = $1", [dealId]);
+    if (existingRes.rows.length === 0) return res.status(404).json({ error: "Deal not found" });
+    const prevDeal = existingRes.rows[0];
+
     const probMap = {
       DISCOVERY: 35,
-      DEMO_TECNICA: 60,
+      DEMO_TECNICA: 65,
       SIMULACION_FINACTIONABLE: 75,
       NEGOCIACION: 88,
       CERRADO_GANADO: 100,
     };
-    const probability = probMap[stage] || 50;
+    const probability = customProb !== undefined ? Number(customProb) : probMap[stage] || 50;
+    const effectiveDate = transitionDate ? new Date(transitionDate) : new Date();
 
     const { rows } = await pool.query(
       `UPDATE deals
        SET stage = COALESCE($1, stage),
            modality = COALESCE($2, modality),
            probability = $3,
+           next_action = COALESCE($4, next_action),
+           last_changed_by = $5,
+           last_changed_role = $6,
+           last_stage_change_at = $7,
+           last_justification = $8,
            updated_at = NOW()
-       WHERE id = $4
+       WHERE id = $9
        RETURNING *`,
-      [stage, modality, probability, dealId]
+      [
+        stage,
+        modality,
+        probability,
+        nextAction || prevDeal.next_action,
+        String(responsibleName).trim(),
+        responsibleRole,
+        effectiveDate,
+        String(justification).trim(),
+        dealId,
+      ]
     );
 
-    if (rows.length === 0) return res.status(404).json({ error: "Deal not found" });
+    const updatedDeal = rows[0];
+
+    const histInsert = await pool.query(
+      `INSERT INTO deal_stage_history
+        (deal_id, from_stage, to_stage, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 95)
+       RETURNING *`,
+      [
+        dealId,
+        prevDeal.stage,
+        updatedDeal.stage,
+        String(responsibleName).trim(),
+        responsibleEmail || "ejecutivo@projectsfactory.io",
+        responsibleRole,
+        effectiveDate,
+        String(justification).trim(),
+        updatedDeal.next_action,
+      ]
+    );
 
     await pool.query(
       `INSERT INTO activity_logs (event_type, summary, structured_payload)
        VALUES ('PIPELINE_STAGE_MOVE', $1, $2)`,
       [
-        `Deal "${rows[0].title}" avanzó a etapa ${rows[0].stage} (${rows[0].probability}% prob.)`,
-        JSON.stringify(rows[0]),
+        `[${responsibleName}] movió "${updatedDeal.title}" de ${prevDeal.stage} → ${updatedDeal.stage}: "${String(justification).trim()}"`,
+        JSON.stringify({ deal: updatedDeal, audit: histInsert.rows[0] }),
       ]
     );
 
-    res.json(rows[0]);
+    res.json({ ok: true, deal: updatedDeal, historyEntry: histInsert.rows[0] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -859,6 +1193,8 @@ app.post("/api/mcp/execute", async (req, res) => {
   }
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`[NexusPF-CRM Backend & MCP Server] Listening on http://0.0.0.0:${PORT}`);
+ensureAuthAndKanbanSchema().then(() => {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`[NexusPF-CRM Backend & MCP Server] Listening on http://0.0.0.0:${PORT}`);
+  });
 });
