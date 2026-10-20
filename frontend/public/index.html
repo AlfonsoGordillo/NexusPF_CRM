@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NexusPF CRM — AI-Driven Revenue & FinActionable OS</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div>
+        <div class="brand-block">
+          <div class="brand-badge-row">
+            <span class="brand-pill pf">projectsfactory.io</span>
+            <span class="brand-pill fa">finanactionable.co</span>
+          </div>
+          <div class="brand-title">
+            <span>◈ NexusPF</span>
+          </div>
+          <p class="brand-subtitle">AI-Driven Revenue & Digital Asset OS · Venta CapEx vs Renta MRR</p>
+        </div>
+
+        <div class="nav-section-label">Operación Comercial & IA</div>
+        <ul class="nav-list">
+          <li>
+            <button class="nav-btn active" data-view="dashboard">
+              <span>⚡ Command Center</span>
+              <span class="nav-tag">LIVE</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="smartgrid">
+              <span>✦ Smart Grid & Magic AI</span>
+              <span class="nav-tag">Clay+Attio</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="kanban">
+              <span>❖ Pipeline Dual Kanban</span>
+              <span class="nav-tag">CapEx/MRR</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="studio">
+              <span>📈 FinActionable Studio</span>
+              <span class="nav-tag">Simulador</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="catalog">
+              <span>📦 Catálogo IP & Tenants</span>
+              <span class="nav-tag">Activos</span>
+            </button>
+          </li>
+          <li>
+            <button class="nav-btn" data-view="mcp">
+              <span>🔌 Servidor MCP & Cloud</span>
+              <span class="nav-tag">5 Tools</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="infra-status">
+          <span class="pulse-dot"></span>
+          <span id="db-status-text">PostgreSQL 16 + MCP Ready</span>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); line-height:1.45;">
+          Docker Desktop Local · Render Blueprint (`render.yaml`) · Firebase Auth/Hosting Ready
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="main-workspace">
+      <!-- TOPBAR -->
+      <header class="topbar">
+        <div class="cmdk-trigger" id="open-cmdk-btn">
+          <span>✨ <strong>Zero-Admin AI Bar:</strong> Pega una nota de voz, correo o reunión para crear Cuenta + Deal...</span>
+          <span class="kbd-shortcut">Ctrl + K</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-cyan" id="btn-enrich-all">⚡ Enriquecer Todo con Magic AI</button>
+          <button class="btn btn-emerald" id="btn-open-zero-admin">+ Ingesta Zero-Admin</button>
+        </div>
+      </header>
+
+      <div class="view-container">
+        <!-- VIEW 1: EXECUTIVE COMMAND CENTER -->
+        <section id="view-dashboard" class="view-panel active">
+          <div class="section-header">
+            <div>
+              <h1 class="section-title">Executive Revenue & FinActionable Command Center</h1>
+              <p class="section-desc">Visión unificada de productos digitales en Renta Recurrente (MRR/AaaS) vs. Venta Llave en Mano (Buyout CapEx)</p>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button class="btn" onclick="switchView('studio')">Abrir Simulador Venta vs Renta →</button>
+            </div>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card emerald-top">
+              <div class="kpi-label">MRR Activo en Renta (Catálogo + Pipeline)</div>
+              <div class="kpi-value" id="kpi-mrr">$0</div>
+              <div class="kpi-sub"><span style="color:var(--accent-emerald)">● ARR Proyectado:</span> <strong id="kpi-arr">$0</strong></div>
+            </div>
+            <div class="kpi-card gold-top">
+              <div class="kpi-label">Pipeline Venta Directa (Buyout CapEx)</div>
+              <div class="kpi-value" id="kpi-buyout">$0</div>
+              <div class="kpi-sub"><span style="color:var(--accent-gold)">● Liquidez Inmediata IP</span> · Cesión/Licencia</div>
+            </div>
+            <div class="kpi-card cyan-top">
+              <div class="kpi-label">Tenants Activos en Renta (Render/Firebase)</div>
+              <div class="kpi-value" id="kpi-tenants">0</div>
+              <div class="kpi-sub">Margen Bruto Promedio: <strong id="kpi-margin" style="color:var(--accent-emerald)">0%</strong></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Cuentas B2B Enriquecidas (Magic AI)</div>
+              <div class="kpi-value" id="kpi-enriched">0 / 0</div>
+              <div class="kpi-sub">Agentes Claygent + FinActionable Activos</div>
+            </div>
+          </div>
+
+          <div class="split-2col">
+            <div class="card-panel">
+              <div class="card-title">
+                <span>Curva Comparativa de Ingresos Acumulados (36 Meses): Renta SaaS/AaaS vs. Venta Directa</span>
+                <span class="badge badge-renta">Motor FinActionable.co</span>
+              </div>
+              <p style="font-size:12.5px; color:var(--text-secondary); margin-bottom:14px;">
+                Demostración en tiempo real de cómo el canon mensual recurrente (línea esmeralda) supera el pago único de venta CapEx (línea dorada) tras cruzar el mes de equilibrio.
+              </p>
+              <div id="dashboard-chart-box" style="width:100%; height:260px;"></div>
+            </div>
+
+            <div class="card-panel">
+              <div class="card-title">
+                <span>Feed de Actividad Agéntica (Zero-Admin & MCP)</span>
+                <span class="badge badge-hibrido">Tiempo Real</span>
+              </div>
+              <div id="activity-feed-list" style="display:flex; flex-direction:column; gap:10px; margin-top:12px; max-height:265px; overflow-y:auto;"></div>
+            </div>
+          </div>
+
+          <div class="card-panel">
+            <div class="card-title">
+              <span>Oportunidades Prioritarias con Diagnóstico FinActionable</span>
+              <button class="btn" onclick="switchView('kanban')">Ver Tablero Kanban Completo</button>
+            </div>
+            <div class="smart-table-wrap" style="margin-top:12px; border:none;">
+              <table class="smart-table">
+                <thead>
+                  <tr>
+                    <th>Oportunidad / Cliente</th>
+                    <th>Unidad</th>
+                    <th>Modalidad Comercial</th>
+                    <th>Renta MRR + Setup</th>
+                    <th>Equivalente Buyout</th>
+                    <th>Break-Even</th>
+                    <th>LTV 24 Meses</th>
+                    <th>Etapa</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-deals-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 2: SMART GRID & MAGIC AI COLUMNS -->
+        <section id="view-smartgrid" class="view-panel">
+          <div class="section-header">
+            <div>
+              <h1 class="section-title">Smart Grid B2B con "Magic AI Columns" (Estilo Attio + Clay)</h1>
+              <p class="section-desc">Cada columna azul es calculada por agentes IA que analizan la cuenta, recomiendan qué activo de projectsfactory.io ofrecer (en Venta o Renta) y redactan el gancho ejecutivo.</p>
+            </div>
+            <button class="btn btn-cyan" id="btn-grid-enrich-all">⚡ Ejecutar Magic AI en Todas las Filas</button>
+          </div>
+
+          <div class="smart-table-wrap">
+            <table class="smart-table">
+              <thead>
+                <tr>
+                  <th>Empresa & Dominio</th>
+                  <th>Sector / País</th>
+                  <th>Decisor Clave</th>
+                  <th class="magic-col">✦ AI Fit Score</th>
+                  <th class="magic-col">✦ Activo Digital Recomendado</th>
+                  <th class="magic-col">✦ Modalidad Óptima (Venta vs Renta)</th>
+                  <th class="magic-col">✦ Dictamen FinActionable (Unit Economics)</th>
+                  <th class="magic-col">✦ Icebreaker Ejecutivo Personalizado</th>
+                  <th>Acción IA</th>
+                </tr>
+              </thead>
+              <tbody id="smartgrid-tbody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- VIEW 3: DUAL PIPELINE KANBAN -->
+        <section id="view-kanban" class="view-panel">
+          <div class="section-header">
+            <div>
+              <h1 class="section-title">Pipeline Dual Kanban: Venta Directa (CapEx) vs. Renta Mensual (MRR / AaaS)</h1>
+              <p class="section-desc">Gestiona oportunidades combinando licenciamiento recurrente SaaS/AaaS y proyectos llave en mano con métricas de LTV y margen integradas en cada tarjeta.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn" onclick="filterKanban('ALL')">Todos</button>
+              <button class="btn btn-emerald" onclick="filterKanban('RENTA_MRR')">Solo Renta MRR</button>
+              <button class="btn btn-gold" onclick="filterKanban('VENTA_CAPEX')">Solo Venta CapEx</button>
+            </div>
+          </div>
+          <div class="kanban-board" id="kanban-board-container"></div>
+        </section>
+
+        <!-- VIEW 4: FINACTIONABLE DEAL STUDIO -->
+        <section id="view-studio" class="view-panel">
+          <div class="section-header">
+            <div>
+              <h1 class="section-title">FinActionable Deal Studio — Simulador Interactivo Venta vs. Renta</h1>
+              <p class="section-desc">Simula en vivo frente a tu equipo o tu cliente qué estructura comercial maximiza el LTV, el flujo de caja y el retorno sobre costos de Render y Firebase.</p>
+            </div>
+          </div>
+
+          <div class="studio-grid">
+            <div class="card-panel">
+              <div class="card-title">Parámetros del Contrato</div>
+              <div class="control-group" style="margin-top:12px;">
+                <label class="control-label">Vincular a Oportunidad Activa</label>
+                <select id="sim-deal-select" class="input-field"></select>
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">
+                  <span>Precio Venta Llave en Mano (Buyout CapEx)</span>
+                  <span class="control-val" id="val-buyout">$22,000</span>
+                </div>
+                <input type="range" id="rng-buyout" min="5000" max="60000" step="500" value="22000" />
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">
+                  <span>Setup Fee Inicial (En modalidad Renta)</span>
+                  <span class="control-val" id="val-setup">$2,500</span>
+                </div>
+                <input type="range" id="rng-setup" min="0" max="15000" step="250" value="2500" />
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">
+                  <span>Canon Mensual de Renta (MRR SaaS / AaaS)</span>
+                  <span class="control-val" id="val-mrr">$990 / mes</span>
+                </div>
+                <input type="range" id="rng-mrr" min="200" max="5000" step="50" value="990" />
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">
+                  <span>Costo Mensual Cloud (Render + Firebase por Tenant)</span>
+                  <span class="control-val" id="val-infra">$70 / mes</span>
+                </div>
+                <input type="range" id="rng-infra" min="15" max="600" step="5" value="70" />
+              </div>
+
+              <div class="control-group">
+                <div class="control-label">
+                  <span>Póliza Mensual Mantenimiento (En Venta CapEx)</span>
+                  <span class="control-val" id="val-maint">$250 / mes</span>
+                </div>
+                <input type="range" id="rng-maint" min="0" max="1500" step="50" value="250" />
+              </div>
+
+              <button class="btn btn-emerald" style="width:100%; justify-content:center; margin-top:10px;" id="btn-save-simulation">
+                💾 Guardar Simulación en el Deal (PostgreSQL)
+              </button>
+            </div>
+
+            <div class="card-panel">
+              <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom:16px;">
+                <div class="kpi-card emerald-top" style="padding:12px;">
+                  <div class="kpi-label">Punto de Equilibrio</div>
+                  <div class="kpi-value" id="sim-breakeven" style="font-size:22px;">18.5 m</div>
+                  <div class="kpi-sub">Renta supera a Venta</div>
+                </div>
+                <div class="kpi-card" style="padding:12px;">
+                  <div class="kpi-label">LTV Renta (24 Meses)</div>
+                  <div class="kpi-value" id="sim-ltv24" style="font-size:22px; color:var(--accent-emerald);">$26,260</div>
+                  <div class="kpi-sub">Ingreso recurrente</div>
+                </div>
+                <div class="kpi-card" style="padding:12px;">
+                  <div class="kpi-label">LTV Renta (36 Meses)</div>
+                  <div class="kpi-value" id="sim-ltv36" style="font-size:22px; color:var(--accent-cyan);">$38,140</div>
+                  <div class="kpi-sub">Con propiedad IP intacta</div>
+                </div>
+                <div class="kpi-card gold-top" style="padding:12px;">
+                  <div class="kpi-label">Margen Bruto Renta</div>
+                  <div class="kpi-value" id="sim-margin" style="font-size:22px;">92.9%</div>
+                  <div class="kpi-sub">Neto tras Render/Firebase</div>
+                </div>
+              </div>
+
+              <div id="studio-svg-chart" style="width:100%; height:290px; margin-bottom:16px;"></div>
+
+              <div id="sim-narrative-box" style="background:rgba(16,185,129,0.09); border:1px solid rgba(16,185,129,0.35); border-radius:10px; padding:14px; font-size:13.5px; line-height:1.5;"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- VIEW 5: DIGITAL PRODUCTS CATALOG -->
+        <section id="view-catalog" class="view-panel">
+          <div class="section-header">
+            <div>
+              <h1 class="section-title">Catálogo de Productos Digitales, Agentes AaaS & Tenants Activos</h1>
+              <p class="section-desc">Inventario vivo de activos de software de <strong>projectsfactory.io</strong> y <strong>finanactionable.co</strong> listos para comercializar en Venta o Renta.</p>
+            </div>
+          </div>
+
+          <div class="catalog-grid" id="catalog-cards-container"></div>
+        </section>
+
+        <!-- VIEW 6: MCP SERVER & CLOUD DEPLOYMENT -->
+        <section id="view-mcp" class="view-panel">
+          <div class="section-header">
+            <div>
+              <h1 class="section-title">Servidor MCP Nativo & Arquitectura Docker → Render + Firebase</h1>
+              <p class="section-desc">Conecta este CRM directamente a tus agentes en Antigravity, Claude Code o Gemini CLI mediante el protocolo MCP e infraestructura lista para producción.</p>
+            </div>
+          </div>
+
+          <div class="split-2col">
+            <div class="card-panel">
+              <div class="card-title">
+                <span>Consola Interactiva de Tools MCP Expuestas (`io.projectsfactory.nexuspf-crm`)</span>
+                <span class="badge badge-hibrido">JSON-RPC 2.0</span>
+              </div>
+              <p style="font-size:12.5px; color:var(--text-secondary); margin:8px 0 14px;">
+                Haz clic en cualquier herramienta MCP para ejecutarla en vivo contra PostgreSQL y ver la respuesta estructurada que reciben tus agentes IA:
+              </p>
+              <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+                <button class="btn btn-cyan" onclick="runMcpTool('nexuspf_catalog_assets', {})">▶ nexuspf_catalog_assets</button>
+                <button class="btn btn-cyan" onclick="runMcpTool('nexuspf_list_pipeline', {modality:'ALL'})">▶ nexuspf_list_pipeline</button>
+                <button class="btn btn-cyan" onclick="runMcpTool('nexuspf_simulate_unit_economics', {buyoutPrice:22000, setupFee:2500, monthlyRentMrr:1100, infraCostMonthly:70})">▶ nexuspf_simulate_unit_economics</button>
+                <button class="btn btn-cyan" onclick="runMcpTool('nexuspf_magic_enrich_lead', {accountId:4})">▶ nexuspf_magic_enrich_lead (#4)</button>
+              </div>
+              <pre id="mcp-output-pre" style="background:#04070d; border:1px solid var(--border-hairline); border-radius:10px; padding:14px; font-family:var(--font-mono); font-size:11.5px; color:#34d399; max-height:310px; overflow:auto;">// Selecciona una herramienta MCP arriba para inspeccionar su salida en tiempo real...</pre>
+            </div>
+
+            <div class="card-panel">
+              <div class="card-title">Blueprint de Despliegue: Docker Desktop → Render & Firebase</div>
+              <div style="font-size:13px; color:var(--text-secondary); line-height:1.6; display:flex; flex-direction:column; gap:12px; margin-top:10px;">
+                <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border:1px solid var(--border-hairline);">
+                  <strong style="color:var(--accent-emerald);">1. Local en Docker Desktop (`docker-compose.yml`)</strong><br/>
+                  Contenedores activos: <code>nexuspf-db</code> (PostgreSQL 16 en puerto 5440), <code>nexuspf-api</code> (Backend + MCP en puerto 4400) y <code>nexuspf-web</code> (Frontend en puerto 3400).
+                </div>
+                <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border:1px solid var(--border-hairline);">
+                  <strong style="color:var(--accent-cyan);">2. Publicación en Render (`render.yaml` incluido)</strong><br/>
+                  Conecta el repositorio de GitHub <code>NexusPF_CRM</code> en Render → <em>New Blueprint Instance</em>. Crea automáticamente la base de datos PostgreSQL 16 administrada y los servicios web.
+                </div>
+                <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border:1px solid var(--border-hairline);">
+                  <strong style="color:var(--accent-gold);">3. Publicación en Firebase (`firebase.json` incluido)</strong><br/>
+                  Configurado para <strong>Firebase Hosting / App Hosting</strong> en el frontend estático/SSR, <strong>Firebase Auth</strong> para SSO del equipo y <strong>Firestore</strong> para notificaciones en tiempo real.
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL CTRL+K ZERO-ADMIN AI INGEST -->
+  <div class="modal-backdrop" id="cmdk-modal">
+    <div class="modal-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div>
+          <span class="badge badge-hibrido">Zero-Admin AI Engine · Estilo Day.ai + Clarify</span>
+          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:6px;">Ingesta Conversacional sin Formularios (`Ctrl+K`)</h2>
+        </div>
+        <button class="btn" id="close-cmdk-btn">✕ Cerrar</button>
+      </div>
+
+      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+        Pega la transcripción de una llamada, mensaje de WhatsApp o correo. El agente detecta la empresa, el contacto, el activo digital del catálogo, si es <strong>Venta CapEx</strong> o <strong>Renta MRR</strong>, calcula el punto de equilibrio con <strong>FinActionable</strong> y lo guarda en PostgreSQL:
+      </p>
+
+      <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+        <span style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); text-transform:uppercase;">Ejemplos rápidos con 1 clic:</span>
+        <button class="sample-chip" onclick="fillZeroAdminSample(1)">
+          💬 "Hablé con Roberto Gómez de Grupo Agroindustrial del Valle, quieren rentar el motor de Conciliaciones y Exógenas por $950 al mes con setup de $2,400."
+        </button>
+        <button class="sample-chip" onclick="fillZeroAdminSample(2)">
+          💬 "Reunión con Diana Torres de Banco Finandina Digital, les interesa comprar llave en mano la plataforma FinActionable AI-CFO por $26,500 USD."
+        </button>
+        <button class="sample-chip" onclick="fillZeroAdminSample(3)">
+          💬 "Contacto con Andrés Mejía de EPS SaludTotal Regional, buscan rentar el Agente Autónomo PQRSD como servicio AaaS en $780 mensuales y $1,900 de implementación."
+        </button>
+      </div>
+
+      <textarea id="zero-admin-textarea" rows="4" placeholder="Escribe o pega aquí la nota comercial..."></textarea>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+        <button class="btn btn-emerald" id="btn-submit-zero-admin">✨ Procesar con IA y Guardar en PostgreSQL</button>
+      </div>
+
+      <div id="zero-admin-result" style="display:none; margin-top:14px; padding:14px; border-radius:10px; background:rgba(16,185,129,0.1); border:1px solid var(--accent-emerald); font-size:13px;"></div>
+    </div>
+  </div>
+
+  <div class="toast-banner" id="toast-banner"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

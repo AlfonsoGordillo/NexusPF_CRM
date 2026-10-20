@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Environment & Local Secrets
+.env
+.env.local
+.env.*.local
+
+# Temporary Video Build Artifacts
+media/build_tmp/
+media/capture_screens.mjs
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

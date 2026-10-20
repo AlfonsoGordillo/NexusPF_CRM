@@ -1,0 +1,51 @@
+services:
+  nexuspf-db:
+    image: postgres:16-alpine
+    container_name: nexuspf-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nexuspf
+      POSTGRES_PASSWORD: nexuspf_secret
+      POSTGRES_DB: nexuspf_crm
+    ports:
+      - "5440:5432"
+    volumes:
+      - nexuspf_pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexuspf -d nexuspf_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  nexuspf-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexuspf-api
+    restart: unless-stopped
+    depends_on:
+      nexuspf-db:
+        condition: service_healthy
+    environment:
+      PORT: 4400
+      DATABASE_URL: postgresql://nexuspf:nexuspf_secret@nexuspf-db:5432/nexuspf_crm
+    ports:
+      - "4400:4400"
+
+  nexuspf-web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nexuspf-web
+    restart: unless-stopped
+    depends_on:
+      - nexuspf-api
+    environment:
+      PORT: 3400
+      API_INTERNAL_URL: http://nexuspf-api:4400
+    ports:
+      - "3400:3400"
+
+volumes:
+  nexuspf_pgdata:
