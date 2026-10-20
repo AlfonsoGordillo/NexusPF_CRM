@@ -203,7 +203,13 @@ app.post("/api/products", async (req, res) => {
       monthly_rent_mrr_usd = 900,
       infra_cost_monthly_usd = 65,
       eng_hours_base = 120,
+      active_tenants = 1,
+      sold_buyouts = 0,
     } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: "El nombre del producto digital es obligatorio." });
+    }
 
     const cleanCode =
       (code || `PF-${Date.now().toString().slice(-4)}`).toUpperCase().replace(/\s+/g, "-");
@@ -211,20 +217,22 @@ app.post("/api/products", async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO digital_products
         (code, name, brand, category, description, tech_stack, buyout_price_usd, setup_fee_usd, monthly_rent_mrr_usd, infra_cost_monthly_usd, eng_hours_base, active_tenants, sold_buyouts)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,1,0)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        RETURNING *`,
       [
         cleanCode,
-        name,
+        String(name).trim(),
         brand,
         category,
         description,
         tech_stack,
-        buyout_price_usd,
-        setup_fee_usd,
-        monthly_rent_mrr_usd,
-        infra_cost_monthly_usd,
-        eng_hours_base,
+        Number(buyout_price_usd) || 0,
+        Number(setup_fee_usd) || 0,
+        Number(monthly_rent_mrr_usd) || 0,
+        Number(infra_cost_monthly_usd) || 0,
+        Number(eng_hours_base) || 120,
+        Number(active_tenants) || 0,
+        Number(sold_buyouts) || 0,
       ]
     );
 
@@ -232,12 +240,128 @@ app.post("/api/products", async (req, res) => {
       `INSERT INTO activity_logs (event_type, summary, structured_payload)
        VALUES ('CATALOG_ASSET_CREATED', $1, $2)`,
       [
-        `Nuevo activo digital registrado en ${brand}: ${name} (Venta $${buyout_price_usd} | Renta $${monthly_rent_mrr_usd}/mes)`,
+        `Nuevo activo digital creado en ${brand}: ${name} (Venta $${buyout_price_usd} | Renta $${monthly_rent_mrr_usd}/mes)`,
         JSON.stringify(rows[0]),
       ]
     );
 
     res.status(201).json(rows[0]);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.put("/api/products/:id", async (req, res) => {
+  try {
+    const productId = Number(req.params.id);
+    const {
+      code,
+      name,
+      brand,
+      category,
+      description,
+      tech_stack,
+      buyout_price_usd,
+      setup_fee_usd,
+      monthly_rent_mrr_usd,
+      infra_cost_monthly_usd,
+      eng_hours_base,
+      active_tenants,
+      sold_buyouts,
+    } = req.body;
+
+    const existingRes = await pool.query("SELECT * FROM digital_products WHERE id = $1", [productId]);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ error: "Producto digital no encontrado." });
+    }
+    const cur = existingRes.rows[0];
+
+    const updatedCode = code ? String(code).toUpperCase().replace(/\s+/g, "-") : cur.code;
+    const updatedName = name !== undefined ? String(name).trim() : cur.name;
+    const updatedBrand = brand !== undefined ? brand : cur.brand;
+    const updatedCategory = category !== undefined ? category : cur.category;
+    const updatedDesc = description !== undefined ? description : cur.description;
+    const updatedStack = tech_stack !== undefined ? tech_stack : cur.tech_stack;
+    const updatedBuyout = buyout_price_usd !== undefined ? Number(buyout_price_usd) : Number(cur.buyout_price_usd);
+    const updatedSetup = setup_fee_usd !== undefined ? Number(setup_fee_usd) : Number(cur.setup_fee_usd);
+    const updatedMrr = monthly_rent_mrr_usd !== undefined ? Number(monthly_rent_mrr_usd) : Number(cur.monthly_rent_mrr_usd);
+    const updatedInfra = infra_cost_monthly_usd !== undefined ? Number(infra_cost_monthly_usd) : Number(cur.infra_cost_monthly_usd);
+    const updatedHours = eng_hours_base !== undefined ? Number(eng_hours_base) : Number(cur.eng_hours_base);
+    const updatedTenants = active_tenants !== undefined ? Number(active_tenants) : Number(cur.active_tenants);
+    const updatedSold = sold_buyouts !== undefined ? Number(sold_buyouts) : Number(cur.sold_buyouts);
+
+    const { rows } = await pool.query(
+      `UPDATE digital_products
+       SET code = $1,
+           name = $2,
+           brand = $3,
+           category = $4,
+           description = $5,
+           tech_stack = $6,
+           buyout_price_usd = $7,
+           setup_fee_usd = $8,
+           monthly_rent_mrr_usd = $9,
+           infra_cost_monthly_usd = $10,
+           eng_hours_base = $11,
+           active_tenants = $12,
+           sold_buyouts = $13
+       WHERE id = $14
+       RETURNING *`,
+      [
+        updatedCode,
+        updatedName,
+        updatedBrand,
+        updatedCategory,
+        updatedDesc,
+        updatedStack,
+        updatedBuyout,
+        updatedSetup,
+        updatedMrr,
+        updatedInfra,
+        updatedHours,
+        updatedTenants,
+        updatedSold,
+        productId,
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('CATALOG_ASSET_UPDATED', $1, $2)`,
+      [
+        `Activo actualizado (${updatedCode}): ${updatedName} — ${updatedTenants} tenants activos | Renta $${updatedMrr}/m | Buyout $${updatedBuyout}`,
+        JSON.stringify(rows[0]),
+      ]
+    );
+
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete("/api/products/:id", async (req, res) => {
+  try {
+    const productId = Number(req.params.id);
+    const existingRes = await pool.query("SELECT * FROM digital_products WHERE id = $1", [productId]);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ error: "Producto digital no encontrado." });
+    }
+    const prod = existingRes.rows[0];
+
+    await pool.query("UPDATE deals SET product_id = NULL WHERE product_id = $1", [productId]);
+    await pool.query("DELETE FROM digital_products WHERE id = $1", [productId]);
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('CATALOG_ASSET_DELETED', $1, $2)`,
+      [
+        `Activo digital eliminado del catálogo: ${prod.name} (${prod.code})`,
+        JSON.stringify({ id: productId, code: prod.code, name: prod.name }),
+      ]
+    );
+
+    res.json({ ok: true, deleted: prod });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

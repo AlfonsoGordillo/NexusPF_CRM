@@ -448,10 +448,10 @@ document.getElementById("btn-save-simulation").addEventListener("click", () => {
   runStudioSimulation(true);
 });
 
-// View 5: Digital Products Catalog
+// View 5: Digital Products Catalog (Full CRUD: Create, Read, Update, Scale Tenants, Delete)
 function renderCatalogView() {
   const container = document.getElementById("catalog-cards-container");
-  container.innerHTML = state.products
+  const productCards = state.products
     .map(
       (p) => `
       <div class="product-card">
@@ -460,34 +460,243 @@ function renderCatalogView() {
             <span class="brand-pill ${p.brand === "finanactionable.co" ? "fa" : "pf"}">${p.brand}</span>
             <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">${p.code}</span>
           </div>
+          <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-emerald); text-transform:uppercase; margin-bottom:4px;">
+            ${p.category || "SaaS / AI Asset"}
+          </div>
           <h3 style="font-family:var(--font-display); font-size:18px; margin-bottom:6px;">${p.name}</h3>
           <p style="font-size:12.5px; color:var(--text-secondary); line-height:1.5; margin-bottom:12px;">
-            ${p.description}
+            ${p.description || "Activo digital listo para licenciamiento SaaS/AaaS o venta llave en mano."}
           </p>
           <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan); margin-bottom:14px;">
             Stack: ${p.tech_stack}
           </div>
         </div>
 
-        <div class="deal-metrics-box" style="margin-bottom:0;">
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-            <span>Renta SaaS / AaaS:</span>
-            <strong style="color:var(--accent-emerald);">${fmtUsd(p.monthly_rent_mrr_usd)}/mes (+${fmtUsd(p.setup_fee_usd)} setup)</strong>
+        <div>
+          <div class="deal-metrics-box" style="margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span>Renta SaaS / AaaS:</span>
+              <strong style="color:var(--accent-emerald);">${fmtUsd(p.monthly_rent_mrr_usd)}/mes (+${fmtUsd(p.setup_fee_usd)} setup)</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span>Venta Llave en Mano (IP):</span>
+              <strong style="color:var(--accent-gold);">${fmtUsd(p.buyout_price_usd)} USD</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span>Costo Cloud / Tenant:</span>
+              <span style="font-family:var(--font-mono); color:var(--text-secondary);">${fmtUsd(p.infra_cost_monthly_usd)}/mes</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding-top:6px; border-top:1px solid var(--border-hairline);">
+              <span>Tenants en Renta: <strong>${p.active_tenants}</strong></span>
+              <span>MRR Activo: <strong style="color:var(--accent-emerald);">${fmtUsd(Number(p.monthly_rent_mrr_usd) * Number(p.active_tenants))}/m</strong></span>
+            </div>
           </div>
-          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-            <span>Venta Llave en Mano (IP):</span>
-            <strong style="color:var(--accent-gold);">${fmtUsd(p.buyout_price_usd)} USD</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between; padding-top:6px; border-top:1px solid var(--border-hairline);">
-            <span>Tenants Activos en Renta: <strong>${p.active_tenants}</strong></span>
-            <span>MRR Producto: <strong style="color:var(--accent-emerald);">${fmtUsd(Number(p.monthly_rent_mrr_usd) * Number(p.active_tenants))}/m</strong></span>
+
+          <div style="display:flex; justify-content:space-between; gap:6px;">
+            <button class="btn btn-emerald" style="padding:6px 10px; font-size:11.5px; flex:1; justify-content:center;" onclick="incrementProductTenant(${p.id})">
+              +1 Tenant Renta
+            </button>
+            <button class="btn btn-cyan" style="padding:6px 10px; font-size:11.5px;" onclick="openProductModal(${p.id})">
+              ✏️ Editar
+            </button>
+            <button class="btn" style="padding:6px 10px; font-size:11.5px; color:var(--accent-rose); border-color:rgba(244,63,94,0.35);" onclick="deleteProductCrud(${p.id})">
+              🗑️
+            </button>
           </div>
         </div>
       </div>
     `
     )
     .join("");
+
+  const addNewCard = `
+    <div class="product-card" onclick="openProductModal()" style="border:2px dashed rgba(16,185,129,0.45); background:rgba(16,185,129,0.03); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:290px;">
+      <div style="width:52px; height:52px; border-radius:50%; background:rgba(16,185,129,0.15); border:1px solid var(--accent-emerald); display:flex; align-items:center; justify-content:center; font-size:26px; color:var(--accent-emerald); margin-bottom:12px;">
+        +
+      </div>
+      <h3 style="font-family:var(--font-display); font-size:18px; margin-bottom:6px; color:var(--text-primary);">
+        Crear Nuevo Producto Digital o Agente IA
+      </h3>
+      <p style="font-size:12.5px; color:var(--text-secondary); max-width:290px; line-height:1.5;">
+        Registra un nuevo software o agente de <strong>projectsfactory.io</strong> o <strong>finanactionable.co</strong> con sus precios de Venta CapEx y Renta MRR.
+      </p>
+    </div>
+  `;
+
+  container.innerHTML = productCards + addNewCard;
 }
+
+const productModal = document.getElementById("product-modal");
+
+window.openProductModal = function (productId = null) {
+  if (!productModal) return;
+  const titleEl = document.getElementById("product-modal-title");
+  const badgeEl = document.getElementById("product-modal-badge");
+
+  if (productId) {
+    const p = state.products.find((item) => item.id === Number(productId));
+    if (!p) return;
+    titleEl.textContent = `Editar Activo Digital: ${p.name}`;
+    badgeEl.textContent = `EDITANDO ID #${p.id} · ${p.code}`;
+    document.getElementById("prod-id").value = String(p.id);
+    document.getElementById("prod-brand").value = p.brand || "projectsfactory.io";
+    document.getElementById("prod-code").value = p.code || "";
+    document.getElementById("prod-category").value = p.category || "SaaS / FinTech Engine";
+    document.getElementById("prod-name").value = p.name || "";
+    document.getElementById("prod-stack").value = p.tech_stack || "";
+    document.getElementById("prod-desc").value = p.description || "";
+    document.getElementById("prod-buyout").value = Math.round(Number(p.buyout_price_usd) || 18000);
+    document.getElementById("prod-mrr").value = Math.round(Number(p.monthly_rent_mrr_usd) || 900);
+    document.getElementById("prod-setup").value = Math.round(Number(p.setup_fee_usd) || 2200);
+    document.getElementById("prod-infra").value = Math.round(Number(p.infra_cost_monthly_usd) || 65);
+    document.getElementById("prod-tenants").value = Number(p.active_tenants) || 0;
+    document.getElementById("prod-sold").value = Number(p.sold_buyouts) || 0;
+  } else {
+    titleEl.textContent = "Registrar Nuevo Producto Digital / Agente IA";
+    badgeEl.textContent = "NUEVO ACTIVO EN CATÁLOGO · POSTGRESQL 16";
+    document.getElementById("prod-id").value = "";
+    document.getElementById("prod-brand").value = "projectsfactory.io";
+    document.getElementById("prod-code").value = `PF-AI-${Math.floor(100 + Math.random() * 899)}`;
+    document.getElementById("prod-category").value = "Agent-as-a-Service (AaaS)";
+    document.getElementById("prod-name").value = "";
+    document.getElementById("prod-stack").value = "Next.js · FastAPI · PostgreSQL · Render · Firebase";
+    document.getElementById("prod-desc").value = "";
+    document.getElementById("prod-buyout").value = 19500;
+    document.getElementById("prod-mrr").value = 890;
+    document.getElementById("prod-setup").value = 2200;
+    document.getElementById("prod-infra").value = 60;
+    document.getElementById("prod-tenants").value = 1;
+    document.getElementById("prod-sold").value = 0;
+  }
+
+  productModal.classList.add("open");
+  document.getElementById("prod-name").focus();
+};
+
+window.closeProductModal = function () {
+  if (productModal) productModal.classList.remove("open");
+};
+
+window.fillProductAiTemplate = function () {
+  const templates = [
+    {
+      brand: "finanactionable.co",
+      code: "FA-TREASURY-FX",
+      category: "SaaS / FinTech Engine",
+      name: "FinActionable Autonomous Treasury & FX Hedging Copilot",
+      tech_stack: "Python · FastAPI · PostgreSQL 16 · Render · Firebase",
+      description:
+        "Motor predictivo de tesorería corporativa y cobertura cambiaria multimoneda con alertas automáticas de liquidez para CFOs.",
+      buyout_price_usd: 26000,
+      monthly_rent_mrr_usd: 1150,
+      setup_fee_usd: 2800,
+      infra_cost_monthly_usd: 75,
+      active_tenants: 6,
+      sold_buyouts: 1,
+    },
+    {
+      brand: "projectsfactory.io",
+      code: "PF-WHATSAPP-ERP",
+      category: "Agent-as-a-Service (AaaS)",
+      name: "Autonomous B2B Order & Billing Agent (WhatsApp + ERP)",
+      tech_stack: "Node.js · LangGraph · PostgreSQL · Render · Firebase Auth",
+      description:
+        "Agente transaccional que toma pedidos B2B por WhatsApp, valida inventario/cupo de cartera y emite facturación electrónica.",
+      buyout_price_usd: 17500,
+      monthly_rent_mrr_usd: 790,
+      setup_fee_usd: 1900,
+      infra_cost_monthly_usd: 55,
+      active_tenants: 11,
+      sold_buyouts: 2,
+    },
+  ];
+  const tpl = templates[Math.floor(Math.random() * templates.length)];
+  document.getElementById("prod-brand").value = tpl.brand;
+  document.getElementById("prod-code").value = `${tpl.code}-${Math.floor(10 + Math.random() * 89)}`;
+  document.getElementById("prod-category").value = tpl.category;
+  document.getElementById("prod-name").value = tpl.name;
+  document.getElementById("prod-stack").value = tpl.tech_stack;
+  document.getElementById("prod-desc").value = tpl.description;
+  document.getElementById("prod-buyout").value = tpl.buyout_price_usd;
+  document.getElementById("prod-mrr").value = tpl.monthly_rent_mrr_usd;
+  document.getElementById("prod-setup").value = tpl.setup_fee_usd;
+  document.getElementById("prod-infra").value = tpl.infra_cost_monthly_usd;
+  document.getElementById("prod-tenants").value = tpl.active_tenants;
+  document.getElementById("prod-sold").value = tpl.sold_buyouts;
+};
+
+window.saveProductCrud = async function () {
+  const id = document.getElementById("prod-id").value;
+  const payload = {
+    brand: document.getElementById("prod-brand").value,
+    code: document.getElementById("prod-code").value.trim(),
+    category: document.getElementById("prod-category").value,
+    name: document.getElementById("prod-name").value.trim(),
+    tech_stack: document.getElementById("prod-stack").value.trim(),
+    description: document.getElementById("prod-desc").value.trim(),
+    buyout_price_usd: Number(document.getElementById("prod-buyout").value),
+    monthly_rent_mrr_usd: Number(document.getElementById("prod-mrr").value),
+    setup_fee_usd: Number(document.getElementById("prod-setup").value),
+    infra_cost_monthly_usd: Number(document.getElementById("prod-infra").value),
+    active_tenants: Number(document.getElementById("prod-tenants").value),
+    sold_buyouts: Number(document.getElementById("prod-sold").value),
+  };
+
+  if (!payload.name) {
+    showToast("⚠️ Ingresa el nombre del Producto Digital o Agente IA.");
+    return;
+  }
+
+  const url = id ? `/api/products/${id}` : "/api/products";
+  const method = id ? "PUT" : "POST";
+
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    showToast(`⚠️ Error: ${data.error || "No se pudo guardar"}`);
+    return;
+  }
+
+  closeProductModal();
+  await loadDashboard();
+  showToast(
+    id
+      ? `✅ Producto "${data.name}" actualizado en PostgreSQL.`
+      : `✅ Nuevo producto "${data.name}" agregado al Catálogo.`
+  );
+};
+
+window.incrementProductTenant = async function (productId) {
+  const p = state.products.find((item) => item.id === Number(productId));
+  if (!p) return;
+  const nextTenants = Number(p.active_tenants || 0) + 1;
+  const res = await fetch(`/api/products/${productId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ active_tenants: nextTenants }),
+  });
+  if (res.ok) {
+    await loadDashboard();
+    showToast(`🚀 +1 Tenant activo en "${p.name}" (${nextTenants} tenants rentando).`);
+  }
+};
+
+window.deleteProductCrud = async function (productId) {
+  const p = state.products.find((item) => item.id === Number(productId));
+  if (!p) return;
+  if (!window.confirm(`¿Eliminar el producto "${p.name}" (${p.code}) del catálogo?`)) return;
+
+  const res = await fetch(`/api/products/${productId}`, { method: "DELETE" });
+  if (res.ok) {
+    await loadDashboard();
+    showToast(`🗑️ Producto "${p.name}" eliminado del catálogo.`);
+  }
+};
 
 // View 6: MCP Server Interactive Runner
 window.runMcpTool = async function (toolName, args) {

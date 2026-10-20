@@ -314,7 +314,12 @@
           <div class="section-header">
             <div>
               <h1 class="section-title">Catálogo de Productos Digitales, Agentes AaaS & Tenants Activos</h1>
-              <p class="section-desc">Inventario vivo de activos de software de <strong>projectsfactory.io</strong> y <strong>finanactionable.co</strong> listos para comercializar en Venta o Renta.</p>
+              <p class="section-desc">Inventario vivo CRUD (Crear, Editar, Escalar Tenants y Eliminar) de activos de software de <strong>projectsfactory.io</strong> y <strong>finanactionable.co</strong> listos para Venta CapEx o Renta MRR.</p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <button class="btn btn-emerald" id="btn-open-new-product" onclick="openProductModal()">
+                + Nuevo Producto Digital / Agente IA
+              </button>
             </div>
           </div>
 
@@ -406,6 +411,107 @@
       </div>
 
       <div id="zero-admin-result" style="display:none; margin-top:14px; padding:14px; border-radius:10px; background:rgba(16,185,129,0.1); border:1px solid var(--accent-emerald); font-size:13px;"></div>
+    </div>
+  </div>
+
+  <!-- MODAL CRUD CATÁLOGO DE PRODUCTOS DIGITALES -->
+  <div class="modal-backdrop" id="product-modal">
+    <div class="modal-card" style="max-width:740px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div>
+          <span class="badge badge-renta" id="product-modal-badge">CRUD Catálogo IP · PostgreSQL 16</span>
+          <h2 style="font-family:var(--font-display); font-size:20px; margin-top:6px;" id="product-modal-title">Registrar Nuevo Producto Digital / Agente IA</h2>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-cyan" type="button" onclick="fillProductAiTemplate()" title="Rellenar con ejemplo listo para guardar">✨ Plantilla IA Rápida</button>
+          <button class="btn" type="button" onclick="closeProductModal()">✕ Cerrar</button>
+        </div>
+      </div>
+
+      <input type="hidden" id="prod-id" value="" />
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-bottom:12px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:5px;">Unidad de Negocio (`brand`)</label>
+          <select id="prod-brand" class="input-field" style="width:100%;">
+            <option value="projectsfactory.io">projectsfactory.io</option>
+            <option value="finanactionable.co">finanactionable.co</option>
+          </select>
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:5px;">Código SKU (`code`)</label>
+          <input type="text" id="prod-code" class="input-field" style="width:100%;" placeholder="Ej. PF-AGENT-ERP-05" />
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:5px;">Categoría del Activo</label>
+          <select id="prod-category" class="input-field" style="width:100%;">
+            <option value="SaaS / FinTech Engine">SaaS / FinTech Engine</option>
+            <option value="Agent-as-a-Service (AaaS)">Agent-as-a-Service (AaaS)</option>
+            <option value="AI Revenue & Enterprise OS">AI Revenue & Enterprise OS</option>
+            <option value="Data & Automation Platform">Data & Automation Platform</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1.3fr 1fr; gap:12px; margin-bottom:12px;">
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:5px;">Nombre Comercial del Producto / Agente IA *</label>
+          <input type="text" id="prod-name" class="input-field" style="width:100%;" placeholder="Ej. FinActionable Treasury & FX Copilot" />
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:5px;">Stack Tecnológico (`tech_stack`)</label>
+          <input type="text" id="prod-stack" class="input-field" style="width:100%;" placeholder="Next.js · FastAPI · PostgreSQL · Render · Firebase" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="control-label" style="display:block; margin-bottom:5px;">Descripción Ejecutiva y Propuesta de Valor</label>
+        <textarea id="prod-desc" rows="2" placeholder="Describe qué problema resuelve y cómo opera en modalidad Venta Llave en Mano o Renta Mensual..."></textarea>
+      </div>
+
+      <div style="padding:14px; background:var(--bg-elevated); border:1px solid var(--border-hairline); border-radius:12px; margin-bottom:16px;">
+        <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-emerald); text-transform:uppercase; margin-bottom:10px;">
+          Parámetros Financieros Duales (Motor FinActionable: Venta CapEx vs. Renta MRR)
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px;">
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">Venta Llave en Mano (USD)</label>
+            <input type="number" id="prod-buyout" class="input-field" style="width:100%;" value="20000" min="500" step="500" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">Canon Renta Mensual MRR (USD)</label>
+            <input type="number" id="prod-mrr" class="input-field" style="width:100%;" value="950" min="50" step="50" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">Setup Fee Inicial Renta (USD)</label>
+            <input type="number" id="prod-setup" class="input-field" style="width:100%;" value="2200" min="0" step="100" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">Costo Cloud/Tenant (USD/mes)</label>
+            <input type="number" id="prod-infra" class="input-field" style="width:100%;" value="65" min="5" step="5" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">Tenants Activos en Renta</label>
+            <input type="number" id="prod-tenants" class="input-field" style="width:100%;" value="1" min="0" step="1" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">Ventas Buyout Cerradas</label>
+            <input type="number" id="prod-sold" class="input-field" style="width:100%;" value="0" min="0" step="1" />
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted);" id="prod-modal-preview-eq">
+          Persistencia inmediata en tabla `digital_products` (PostgreSQL 16)
+        </span>
+        <div style="display:flex; gap:10px;">
+          <button class="btn" type="button" onclick="closeProductModal()">Cancelar</button>
+          <button class="btn btn-emerald" type="button" id="btn-save-product" onclick="saveProductCrud()">
+            💾 Guardar Producto en PostgreSQL
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
