@@ -8,6 +8,9 @@ const savedAuthUser = (() => {
 })();
 
 const state = {
+  theme: localStorage.getItem("nexuspf_theme") || "dark",
+  lang: localStorage.getItem("nexuspf_lang") || "es",
+  deviceMode: localStorage.getItem("nexuspf_device") || "pc",
   kpis: {},
   products: [],
   accounts: [],
@@ -35,13 +38,216 @@ const state = {
   },
 };
 
-const STAGES = [
+const STAGES_ES = [
   { id: "DISCOVERY", label: "1. Discovery" },
   { id: "DEMO_TECNICA", label: "2. Demo Técnica" },
   { id: "SIMULACION_FINACTIONABLE", label: "3. Simulación FinActionable" },
   { id: "NEGOCIACION", label: "4. Negociación" },
   { id: "CERRADO_GANADO", label: "5. Cerrado Ganado" },
 ];
+
+const STAGES_EN = [
+  { id: "DISCOVERY", label: "1. Discovery" },
+  { id: "DEMO_TECNICA", label: "2. Tech Demo" },
+  { id: "SIMULACION_FINACTIONABLE", label: "3. FinActionable Sim" },
+  { id: "NEGOCIACION", label: "4. Negotiation" },
+  { id: "CERRADO_GANADO", label: "5. Closed Won" },
+];
+
+let STAGES = STAGES_ES;
+
+function t(esText, enText) {
+  return state.lang === "en" ? enText : esText;
+}
+
+// ============================================================================
+// ENVIRONMENT CONTROLS: LIGHT/DARK MODE · ESPAÑOL/ENGLISH · PC/MOBILE MODE
+// ============================================================================
+window.toggleThemeMode = function () {
+  state.theme = state.theme === "light" ? "dark" : "light";
+  localStorage.setItem("nexuspf_theme", state.theme);
+  applyEnvironmentPreferences();
+  showToast(
+    state.theme === "light"
+      ? t("☀️ Modo Claro Ejecutivo activado.", "☀️ Executive Light Mode enabled.")
+      : t("🌙 Modo Oscuro Obsidian activado.", "🌙 Obsidian Dark Mode enabled.")
+  );
+};
+
+window.toggleLanguage = function () {
+  state.lang = state.lang === "en" ? "es" : "en";
+  localStorage.setItem("nexuspf_lang", state.lang);
+  STAGES = state.lang === "en" ? STAGES_EN : STAGES_ES;
+  applyEnvironmentPreferences();
+  populateKanbanOwnerFilter();
+  renderDashboardView();
+  renderSmartGridView();
+  renderKanbanView();
+  renderCatalogView();
+  renderTeamUsersView();
+  showToast(
+    state.lang === "en"
+      ? "🇺🇸 Language switched to English (EN)."
+      : "🇪🇸 Idioma cambiado a Español (ES)."
+  );
+};
+
+window.toggleDeviceMode = function () {
+  state.deviceMode = state.deviceMode === "mobile" ? "pc" : "mobile";
+  localStorage.setItem("nexuspf_device", state.deviceMode);
+  applyEnvironmentPreferences();
+  renderKanbanView();
+  showToast(
+    state.deviceMode === "mobile"
+      ? t("📱 Vista App Celular activada (con barra inferior táctil).", "📱 Mobile App View enabled (with touch bottom bar).")
+      : t("💻 Vista Escritorio PC activada (pantalla completa).", "💻 Desktop PC View enabled (widescreen).")
+  );
+};
+
+function applyEnvironmentPreferences() {
+  STAGES = state.lang === "en" ? STAGES_EN : STAGES_ES;
+  document.body.classList.toggle("theme-light", state.theme === "light");
+  document.body.classList.toggle("device-mobile", state.deviceMode === "mobile");
+
+  // Update Topbar & Login Gate toggle chips
+  const btnTheme = document.getElementById("btn-theme-toggle");
+  const gateTheme = document.getElementById("gate-btn-theme");
+  const themeLabel = state.theme === "light" ? t("☀️ Claro", "☀️ Light") : t("🌙 Oscuro", "🌙 Dark");
+  if (btnTheme) btnTheme.textContent = themeLabel;
+  if (gateTheme) gateTheme.textContent = themeLabel;
+
+  const btnLang = document.getElementById("btn-lang-toggle");
+  const gateLang = document.getElementById("gate-btn-lang");
+  const langLabel = state.lang === "en" ? "🇺🇸 EN" : "🇪🇸 ES";
+  if (btnLang) btnLang.textContent = langLabel;
+  if (gateLang) gateLang.textContent = langLabel;
+
+  const btnDev = document.getElementById("btn-device-toggle");
+  const gateDev = document.getElementById("gate-btn-device");
+  const devLabel = state.deviceMode === "mobile" ? t("📱 Celular", "📱 Mobile") : "💻 PC";
+  if (btnDev) btnDev.textContent = devLabel;
+  if (gateDev) gateDev.textContent = devLabel;
+
+  // Translate Sidebar Navigation & Mobile Bottom Bar
+  const navTranslations = {
+    dashboard: {
+      title: t("⚡ Command Center", "⚡ Command Center"),
+      tag: "LIVE",
+      mobile: t("Inicio", "Home"),
+    },
+    smartgrid: {
+      title: t("✦ Smart Grid & Magic AI", "✦ Smart Grid & Magic AI"),
+      tag: "Clay+Attio",
+      mobile: t("Grid IA", "AI Grid"),
+    },
+    kanban: {
+      title: t("❖ Pipeline Dual Kanban", "❖ Dual Pipeline Kanban"),
+      tag: "CapEx/MRR",
+      mobile: "Kanban",
+    },
+    studio: {
+      title: t("📈 FinActionable Studio", "📈 FinActionable Studio"),
+      tag: t("Simulador", "Simulator"),
+      mobile: "Studio",
+    },
+    catalog: {
+      title: t("📦 Catálogo IP & Tenants", "📦 IP Catalog & Tenants"),
+      tag: t("Activos", "Assets"),
+      mobile: t("Catálogo", "Catalog"),
+    },
+    team: {
+      title: t("👥 Equipo & Roles RBAC", "👥 Team & RBAC Roles"),
+      tag: t("6 Perfiles", "6 Roles"),
+      mobile: t("Equipo", "Team"),
+    },
+    mcp: {
+      title: t("🔌 Servidor MCP & Cloud", "🔌 MCP Server & Cloud"),
+      tag: "5 Tools",
+      mobile: "MCP",
+    },
+  };
+
+  document.querySelectorAll(".nav-btn").forEach((btn) => {
+    const v = btn.dataset.view;
+    if (navTranslations[v]) {
+      const spans = btn.querySelectorAll("span");
+      if (spans[0]) spans[0].textContent = navTranslations[v].title;
+      if (spans[1]) spans[1].textContent = navTranslations[v].tag;
+    }
+  });
+
+  document.querySelectorAll(".mobile-nav-item").forEach((mBtn) => {
+    const v = mBtn.dataset.mview;
+    const lbl = mBtn.querySelector(".m-lbl");
+    if (v && navTranslations[v] && lbl) {
+      lbl.textContent = navTranslations[v].mobile;
+    }
+  });
+
+  // Topbar & Command bar translations
+  const cmdkTrigger = document.querySelector("#open-cmdk-btn span:first-child");
+  if (cmdkTrigger) {
+    cmdkTrigger.innerHTML =
+      state.lang === "en"
+        ? "✨ <strong>Zero-Admin AI Bar:</strong> Paste a voice note, email or meeting transcript to create Account + Deal..."
+        : "✨ <strong>Zero-Admin AI Bar:</strong> Pega una nota de voz, correo o reunión para crear Cuenta + Deal...";
+  }
+  const btnTopLogin = document.getElementById("btn-topbar-login");
+  if (btnTopLogin) {
+    btnTopLogin.textContent = t("🔐 Login / Cambiar Usuario", "🔐 Login / Switch User");
+  }
+
+  // Section titles & descriptions across all views
+  const viewHeaders = {
+    "#view-dashboard .section-title": t(
+      "Executive Revenue & FinActionable Command Center",
+      "Executive Revenue & FinActionable Command Center"
+    ),
+    "#view-dashboard .section-desc": t(
+      "Visión unificada de productos digitales en Renta Recurrente (MRR/AaaS) vs. Venta Llave en Mano (Buyout CapEx)",
+      "Unified view of digital products in Recurring Rental (MRR/AaaS) vs. Turnkey Buyout Sale (CapEx)"
+    ),
+    "#view-smartgrid .section-title": t(
+      "Smart Grid B2B con 'Magic AI Columns' (Estilo Attio + Clay)",
+      "B2B Smart Grid with 'Magic AI Columns' (Attio + Clay Style)"
+    ),
+    "#view-smartgrid .section-desc": t(
+      "Cada columna azul es calculada por agentes IA que analizan la cuenta, recomiendan qué activo de projectsfactory.io ofrecer y redactan el gancho ejecutivo.",
+      "Every cyan column is computed by AI agents that analyze the account, recommend which projectsfactory.io asset to offer, and draft the executive icebreaker."
+    ),
+    "#view-kanban .section-title": t(
+      "Pipeline Dual Kanban: Venta Directa (CapEx) vs. Renta Mensual (MRR / AaaS)",
+      "Dual Pipeline Kanban: Direct Buyout (CapEx) vs. Monthly Rental (MRR / AaaS)"
+    ),
+    "#view-studio .section-title": t(
+      "FinActionable Deal Studio — Simulador Interactivo Venta vs. Renta",
+      "FinActionable Deal Studio — Interactive Buyout vs. Rental Simulator"
+    ),
+    "#view-catalog .section-title": t(
+      "Catálogo de Productos Digitales, Agentes AaaS & Tenants Activos",
+      "Digital Products Catalog, AaaS Agents & Active Tenants"
+    ),
+    "#view-team .section-title": t(
+      "Equipo Corporativo, Autenticación & Perfiles de Acceso (RBAC)",
+      "Corporate Team, Authentication & Access Profiles (RBAC)"
+    ),
+    "#view-mcp .section-title": t(
+      "Servidor MCP Nativo & Arquitectura Docker → Render + Firebase",
+      "Native MCP Server & Docker → Render + Firebase Architecture"
+    ),
+  };
+
+  for (const [selector, text] of Object.entries(viewHeaders)) {
+    const el = document.querySelector(selector);
+    if (el) el.textContent = text;
+  }
+
+  // Login Gate translations
+  const tabLogin = document.getElementById("tab-btn-login");
+  const tabReg = document.getElementById("tab-btn-register");
+  if (tabLogin) tabLogin.textContent = t("🔑 Iniciar Sesión", "🔑 Sign In");
+  if (tabReg) tabReg.textContent = t("✨ Registrarse por Primera Vez", "✨ First-Time Sign Up");
+}
 
 function fmtUsd(val) {
   return "$" + Math.round(Number(val || 0)).toLocaleString("en-US");
@@ -70,6 +276,9 @@ function modalityBadge(mod) {
 window.switchView = function (viewId) {
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.view === viewId);
+  });
+  document.querySelectorAll(".mobile-nav-item[data-mview]").forEach((mBtn) => {
+    mBtn.classList.toggle("active", mBtn.dataset.mview === viewId);
   });
   document.querySelectorAll(".view-panel").forEach((panel) => {
     panel.classList.toggle("active", panel.id === `view-${viewId}`);
@@ -101,6 +310,7 @@ async function loadDashboard() {
       state.realDealsBackup = JSON.parse(JSON.stringify(state.deals));
     }
 
+    applyEnvironmentPreferences();
     renderAuthUserUI();
     populateKanbanOwnerFilter();
     renderDashboardView();
@@ -526,24 +736,24 @@ function renderKanbanView() {
 
     summaryBox.innerHTML = `
       <div class="kpi-card emerald-top" style="padding:12px 16px;">
-        <div class="kpi-label">Total Renta Mensual (Pipeline MRR)</div>
-        <div class="kpi-value" style="font-size:21px; color:var(--accent-emerald);">${fmtUsd(totalMrrAll)}/mes</div>
-        <div class="kpi-sub">ARR Potencial: <strong>${fmtUsd(totalMrrAll * 12)}/año</strong></div>
+        <div class="kpi-label">${t("Total Renta Mensual (Pipeline MRR)", "Total Monthly Rental (Pipeline MRR)")}</div>
+        <div class="kpi-value" style="font-size:21px; color:var(--accent-emerald);">${fmtUsd(totalMrrAll)}${t("/mes", "/mo")}</div>
+        <div class="kpi-sub">${t("ARR Potencial:", "Potential ARR:")} <strong>${fmtUsd(totalMrrAll * 12)}${t("/año", "/yr")}</strong></div>
       </div>
       <div class="kpi-card gold-top" style="padding:12px 16px;">
-        <div class="kpi-label">Total Venta Directa (Equiv. Buyout CapEx)</div>
+        <div class="kpi-label">${t("Total Venta Directa (Equiv. Buyout CapEx)", "Total Direct Buyout (CapEx Equiv.)")}</div>
         <div class="kpi-value" style="font-size:21px; color:var(--accent-gold);">${fmtUsd(totalBuyoutAll)}</div>
-        <div class="kpi-sub">Valor Llave en Mano Acumulado</div>
+        <div class="kpi-sub">${t("Valor Llave en Mano Acumulado", "Cumulative Turnkey IP Value")}</div>
       </div>
       <div class="kpi-card cyan-top" style="padding:12px 16px;">
-        <div class="kpi-label">Valor Total Pipeline (Renta 24m + Venta)</div>
+        <div class="kpi-label">${t("Valor Total Pipeline (Renta 24m + Venta)", "Total Pipeline Value (24m Rent + Buyout)")}</div>
         <div class="kpi-value" style="font-size:21px; color:var(--accent-cyan);">${fmtUsd(totalCombinedAll)}</div>
-        <div class="kpi-sub">${filteredDeals.length} oportunidades activas ${state.whatIfMode ? "🧪 (Simulación)" : ""}</div>
+        <div class="kpi-sub">${filteredDeals.length} ${t("oportunidades activas", "active deals")} ${state.whatIfMode ? "🧪 (What-If)" : ""}</div>
       </div>
       <div class="kpi-card" style="padding:12px 16px;">
-        <div class="kpi-label">Forecast Ponderado por Probabilidad IA</div>
+        <div class="kpi-label">${t("Forecast Ponderado por Probabilidad IA", "AI Probability-Weighted Forecast")}</div>
         <div class="kpi-value" style="font-size:21px;">${fmtUsd(weightedAll)}</div>
-        <div class="kpi-sub">Sesión: <strong style="color:var(--accent-emerald);">${state.currentUser.name}</strong></div>
+        <div class="kpi-sub">${t("Sesión:", "Session:")} <strong style="color:var(--accent-emerald);">${state.currentUser.name}</strong></div>
       </div>
     `;
   }
@@ -576,23 +786,23 @@ function renderKanbanView() {
 
         <div class="kanban-totals-box">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
-            <span style="color:var(--text-muted);">Total Etapa:</span>
+            <span style="color:var(--text-muted);">${t("Total Etapa:", "Stage Total:")}</span>
             <strong style="font-size:12px; color:var(--text-primary);">${fmtUsd(colCombinedValue)}</strong>
           </div>
           <div style="display:flex; justify-content:space-between; color:var(--accent-emerald);">
-            <span>● Renta MRR:</span>
+            <span>● ${t("Renta MRR:", "Rental MRR:")}</span>
             <strong>${fmtUsd(colRentMrr)}/m</strong>
           </div>
           <div style="display:flex; justify-content:space-between; color:var(--accent-gold);">
-            <span>● Venta CapEx:</span>
+            <span>● ${t("Venta CapEx:", "Buyout CapEx:")}</span>
             <strong>${fmtUsd(colSaleBuyout)}</strong>
           </div>
         </div>
 
         ${
           colDeals.length === 0
-            ? `<div style="border:1px dashed #1e293b; border-radius:8px; padding:22px 10px; text-align:center; font-size:11.5px; color:var(--text-muted);">
-                 Arrastra una tarjeta aquí o pulsa <strong>+ Deal</strong>
+            ? `<div style="border:1px dashed var(--border-hairline); border-radius:8px; padding:22px 10px; text-align:center; font-size:11.5px; color:var(--text-muted);">
+                 ${t("Arrastra una tarjeta aquí o pulsa", "Drag a card here or click")} <strong>+ Deal</strong>
                </div>`
             : ""
         }
@@ -628,20 +838,20 @@ function renderKanbanView() {
 
               <div class="deal-metrics-box">
                 <div style="display:flex; justify-content:space-between;">
-                  <span style="color:var(--text-muted);">Renta MRR:</span>
+                  <span style="color:var(--text-muted);">${t("Renta MRR:", "Rental MRR:")}</span>
                   <strong style="color:var(--accent-emerald);">${fmtUsd(d.mrr_usd)}/m</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between;">
-                  <span style="color:var(--text-muted);">Venta Buyout:</span>
+                  <span style="color:var(--text-muted);">${t("Venta Buyout:", "Buyout Sale:")}</span>
                   <strong style="color:var(--accent-gold);">${fmtUsd(d.buyout_dynamic_usd)}</strong>
                 </div>
-                <div style="display:flex; justify-content:space-between; margin-top:4px; padding-top:4px; border-top:1px dashed #1e293b;">
+                <div style="display:flex; justify-content:space-between; margin-top:4px; padding-top:4px; border-top:1px dashed var(--border-hairline);">
                   <span>LTV 24m: <strong>${fmtUsd(d.ltv_24m_usd)}</strong></span>
                   <span>Eq: <strong>${d.breakeven_months}m</strong></span>
                 </div>
               </div>
 
-              <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:8px; padding:5px 7px; background:rgba(15,23,42,0.7); border-radius:6px; border-left:2px solid var(--accent-emerald);">
+              <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:8px; padding:5px 7px; background:var(--bg-obsidian); border-radius:6px; border-left:2px solid var(--accent-emerald);">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <span>👤 <strong>${lastBy}</strong> · ${lastAt}</span>
                   <span style="background:rgba(16,185,129,0.2); color:var(--accent-emerald); font-weight:700; padding:1px 5px; border-radius:99px; font-size:9.5px;">${ownerInitials}</span>
@@ -652,11 +862,17 @@ function renderKanbanView() {
               </div>
 
               <div style="display:flex; gap:5px; justify-content:space-between; align-items:center; flex-wrap:wrap;">
-                <button class="btn" style="padding:4px 7px; font-size:10.5px;" onclick="openDealInStudio(${d.id})" title="Abrir en Simulador Financiero">📈 Simular</button>
+                <button class="btn" style="padding:4px 7px; font-size:10.5px;" onclick="openDealInStudio(${d.id})" title="Abrir en Simulador Financiero">📈 ${t("Simular", "Sim")}</button>
                 <button class="btn btn-gold" style="padding:4px 7px; font-size:10.5px;" onclick="flipDealModality(${d.id})" title="Alternar 1-Click entre Renta SaaS y Venta CapEx">⇄ Flip</button>
                 <button class="btn btn-cyan" style="padding:4px 7px; font-size:10.5px;" onclick="openDealHistoryModal(${d.id})" title="Ver auditoría de cambios de etapa">
                   📜 (${histCount || 1})
                 </button>
+                <select class="input-field" style="width:auto; padding:3px 6px; font-size:10px; height:25px;" onchange="triggerMobileStageSelect(${d.id}, this.value)" title="Mover etapa (Táctil / Celular o PC)">
+                  <option value="">➔ ${t("Mover", "Move")}</option>
+                  ${STAGES.filter((s) => s.id !== d.stage)
+                    .map((s) => `<option value="${s.id}">${s.label}</option>`)
+                    .join("")}
+                </select>
               </div>
             </div>
           `;
@@ -666,6 +882,19 @@ function renderKanbanView() {
     `;
   }).join("");
 }
+
+window.triggerMobileStageSelect = function (dealId, targetStage) {
+  if (!targetStage) return;
+  const deal = state.deals.find((d) => Number(d.id) === Number(dealId));
+  if (!deal || deal.stage === targetStage) return;
+  if (state.whatIfMode) {
+    deal.stage = targetStage;
+    renderKanbanView();
+    showToast(`🧪 [What-If] "${deal.title}" ➔ ${targetStage}`);
+    return;
+  }
+  openStageTransitionModal(deal, deal.stage, targetStage);
+};
 
 // HTML5 Drag & Drop Handlers for Kanban
 window.handleKanbanDragStart = function (event, dealId) {

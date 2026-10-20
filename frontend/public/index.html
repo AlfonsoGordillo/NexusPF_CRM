@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NexusPF CRM — AI-Driven Revenue & FinActionable OS</title>
-  <link rel="stylesheet" href="/styles.css?v=20261020b" />
+  <link rel="stylesheet" href="/styles.css?v=20261020c" />
 </head>
 <body>
   <div class="app-layout">
@@ -89,11 +89,23 @@
           <span class="kbd-shortcut">Ctrl + K</span>
         </div>
         <div class="topbar-actions">
+          <div class="env-switch-group" title="Personalizar Tema, Idioma y Modo de Dispositivo">
+            <button class="env-chip-btn active-chip" id="btn-theme-toggle" type="button" onclick="toggleThemeMode()" title="Alternar Modo Oscuro / Claro">
+              🌙 Oscuro
+            </button>
+            <button class="env-chip-btn active-chip" id="btn-lang-toggle" type="button" onclick="toggleLanguage()" title="Cambiar Idioma Español / English">
+              🇪🇸 ES
+            </button>
+            <button class="env-chip-btn active-chip" id="btn-device-toggle" type="button" onclick="toggleDeviceMode()" title="Alternar Vista PC / Vista App Celular">
+              💻 PC
+            </button>
+          </div>
+
           <button class="btn" id="auth-user-pill" onclick="switchView('team')" style="border-color:rgba(16,185,129,0.5); background:rgba(16,185,129,0.08);" title="Ver perfil RBAC y gestionar equipo">
             <span id="auth-avatar-badge" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--accent-emerald); color:#04130d; font-weight:700; font-size:11px;">AG</span>
             <span id="auth-user-label" style="font-size:12px;">Alfonso Gordillo · <strong style="color:var(--accent-emerald);">SUPER_ADMIN</strong></span>
           </button>
-          <button class="btn" onclick="openLoginScreenGate()" title="Ir a Pantalla Inicial de Login / Cambiar Usuario / Registrarse" style="padding:7px 10px; font-size:11.5px;">
+          <button class="btn" id="btn-topbar-login" onclick="openLoginScreenGate()" title="Ir a Pantalla Inicial de Login / Cambiar Usuario / Registrarse" style="padding:7px 10px; font-size:11.5px;">
             🔐 Login / Cambiar Usuario
           </button>
           <button class="btn btn-cyan" id="btn-enrich-all">⚡ Magic AI</button>
@@ -482,6 +494,38 @@
           </div>
         </section>
       </div>
+
+      <!-- FLOATING BOTTOM NAVIGATION FOR MOBILE / CELULAR MODE -->
+      <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+        <button class="mobile-nav-item active" data-mview="dashboard" onclick="switchView('dashboard')">
+          <span class="m-icon">⚡</span>
+          <span class="m-lbl" data-i18n-m="home">Inicio</span>
+        </button>
+        <button class="mobile-nav-item" data-mview="smartgrid" onclick="switchView('smartgrid')">
+          <span class="m-icon">✦</span>
+          <span class="m-lbl" data-i18n-m="grid">Grid IA</span>
+        </button>
+        <button class="mobile-nav-item" data-mview="kanban" onclick="switchView('kanban')">
+          <span class="m-icon">❖</span>
+          <span class="m-lbl" data-i18n-m="kanban">Kanban</span>
+        </button>
+        <button class="mobile-nav-item" data-mview="studio" onclick="switchView('studio')">
+          <span class="m-icon">📈</span>
+          <span class="m-lbl" data-i18n-m="studio">Studio</span>
+        </button>
+        <button class="mobile-nav-item" data-mview="catalog" onclick="switchView('catalog')">
+          <span class="m-icon">📦</span>
+          <span class="m-lbl" data-i18n-m="catalog">Catálogo</span>
+        </button>
+        <button class="mobile-nav-item" data-mview="team" onclick="switchView('team')">
+          <span class="m-icon">👥</span>
+          <span class="m-lbl" data-i18n-m="team">Equipo</span>
+        </button>
+        <button class="mobile-nav-item" onclick="openLoginScreenGate()">
+          <span class="m-icon">🔐</span>
+          <span class="m-lbl" data-i18n-m="login">Login</span>
+        </button>
+      </nav>
     </main>
   </div>
 
@@ -656,7 +700,7 @@
       <!-- Right Column: Login & Sign-Up Tabs -->
       <div style="padding:32px; background:var(--bg-surface); display:flex; flex-direction:column; justify-content:space-between;">
         <div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
             <div style="display:flex; gap:8px;">
               <button class="btn btn-emerald" id="tab-btn-login" type="button" onclick="switchLoginGateTab('login')">
                 🔑 Iniciar Sesión
@@ -665,7 +709,14 @@
                 ✨ Registrarse por Primera Vez
               </button>
             </div>
-            <button class="btn" type="button" onclick="closeLoginScreenGate()" title="Continuar con sesión actual">✕</button>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <div class="env-switch-group">
+                <button class="env-chip-btn" id="gate-btn-theme" type="button" onclick="toggleThemeMode()" title="Claro / Oscuro">🌙</button>
+                <button class="env-chip-btn" id="gate-btn-lang" type="button" onclick="toggleLanguage()" title="ES / EN">🇪🇸 ES</button>
+                <button class="env-chip-btn" id="gate-btn-device" type="button" onclick="toggleDeviceMode()" title="PC / Celular">💻 PC</button>
+              </div>
+              <button class="btn" type="button" onclick="closeLoginScreenGate()" title="Continuar con sesión actual">✕</button>
+            </div>
           </div>
 
           <!-- FORM 1: LOGIN -->
@@ -1033,6 +1084,6 @@
   </div>
 
   <div class="toast-banner" id="toast-banner"></div>
-  <script src="/app.js?v=20261020b"></script>
+  <script src="/app.js?v=20261020c"></script>
 </body>
 </html>
