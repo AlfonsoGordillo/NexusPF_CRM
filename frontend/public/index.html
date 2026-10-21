@@ -120,6 +120,77 @@
       </header>
 
       <div class="view-container">
+        <!-- BARRA MAESTRA DE SEGMENTACIÓN GLOBAL (EXCLUSIVA PARA SUPER_ADMIN) -->
+        <div id="admin-segmentation-bar" style="display:none; margin-bottom:18px; padding:12px 16px; border-radius:12px; background:linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08)); border:1px solid rgba(16,185,129,0.45);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="badge badge-renta" style="font-size:11px;">👑 SEGMENTACIÓN MAESTRA (SOLO SUPER_ADMIN)</span>
+              <span style="font-size:12.5px; color:var(--text-secondary);">
+                Filtra en tiempo real todos los Dashboards, KPIs, Smart Grid y Kanban:
+              </span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="seg-summary-badge" style="font-family:var(--font-mono); font-size:11.5px; color:var(--accent-cyan); font-weight:700;">
+                Vista Global: 100% Cartera
+              </span>
+              <button class="btn" type="button" style="padding:4px 10px; font-size:11px;" onclick="resetAdminSegmentation()">
+                ↺ Limpiar Filtros
+              </button>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap:10px;">
+            <div>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">👤 1. Ejecutivo Responsable</label>
+              <select id="seg-owner" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
+                <option value="ALL">Todos los Ejecutivos</option>
+              </select>
+            </div>
+            <div>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">🏷️ 2. Marca / Unidad</label>
+              <select id="seg-brand" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
+                <option value="ALL">Todas las Marcas</option>
+                <option value="projectsfactory.io">projectsfactory.io</option>
+                <option value="finanactionable.co">finanactionable.co</option>
+              </select>
+            </div>
+            <div>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">💼 3. Modalidad Comercial</label>
+              <select id="seg-modality" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
+                <option value="ALL">Todas (Renta + Venta)</option>
+                <option value="RENTA_MRR">Renta Recurrente (MRR)</option>
+                <option value="VENTA_CAPEX">Venta Directa (CapEx)</option>
+                <option value="HIBRIDO_AAAS">Híbrido AaaS / White-Label</option>
+              </select>
+            </div>
+            <div>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">🌎 4. País / Operación</label>
+              <select id="seg-country" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
+                <option value="ALL">Todos los Países</option>
+              </select>
+            </div>
+            <div>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">📊 5. Etapa del Kanban</label>
+              <select id="seg-stage" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
+                <option value="ALL">Todas las Etapas</option>
+                <option value="DISCOVERY">1. Discovery</option>
+                <option value="DEMO_TECNICA">2. Demo Técnica</option>
+                <option value="SIMULACION_FINACTIONABLE">3. Simulación FinActionable</option>
+                <option value="NEGOCIACION">4. Negociación</option>
+                <option value="CERRADO_GANADO">5. Cerrado Ganado</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- BANNER DE ALCANCE DE CARTERA PARA ROLES NO-ADMIN -->
+        <div id="role-scope-banner" style="display:none; margin-bottom:16px; padding:10px 14px; border-radius:10px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.35); font-size:12.5px; color:var(--text-secondary); justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div id="role-scope-banner-text"></div>
+          <button class="btn" type="button" style="padding:4px 10px; font-size:11px;" onclick="openLoginScreenGate()">
+            🔐 Cambiar de Usuario / Rol
+          </button>
+        </div>
+
         <!-- VIEW 1: EXECUTIVE COMMAND CENTER -->
         <section id="view-dashboard" class="view-panel active">
           <div class="section-header">
@@ -976,7 +1047,7 @@
         </div>
       </div>
 
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:12px;">
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-bottom:12px;">
         <div>
           <label class="control-label" style="display:block; margin-bottom:4px;">Columna Inicial del Kanban</label>
           <select id="nd-stage" class="input-field" style="width:100%;">
@@ -993,6 +1064,10 @@
             <option value="RENTA_MRR">RENTA MRR (SaaS / AaaS)</option>
             <option value="VENTA_CAPEX">VENTA CAPEX (Buyout Llave en Mano)</option>
           </select>
+        </div>
+        <div>
+          <label class="control-label" style="display:block; margin-bottom:4px;">👤 Ejecutivo Responsable</label>
+          <select id="nd-owner-user" class="input-field" style="width:100%;"></select>
         </div>
       </div>
 
@@ -1288,6 +1363,6 @@
   </div>
 
   <div class="toast-banner" id="toast-banner"></div>
-  <script src="/app.js?v=20261021f"></script>
+  <script src="/app.js?v=20261021g"></script>
 </body>
 </html>

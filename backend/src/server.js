@@ -267,9 +267,10 @@ async function ensureAuthAndKanbanSchema() {
         `INSERT INTO users (username, name, email, role_code, role, brand_focus, avatar_initials, access_pin, status, permissions_summary)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          ON CONFLICT (email) DO UPDATE
-           SET username = COALESCE(users.username, EXCLUDED.username),
-               role_code = COALESCE(users.role_code, EXCLUDED.role_code),
-               permissions_summary = COALESCE(users.permissions_summary, EXCLUDED.permissions_summary)`,
+           SET username = EXCLUDED.username,
+               role_code = EXCLUDED.role_code,
+               role = EXCLUDED.role,
+               permissions_summary = EXCLUDED.permissions_summary`,
         u
       );
     }
@@ -297,6 +298,49 @@ async function ensureAuthAndKanbanSchema() {
       UPDATE deals SET responsible_user_id = 1 WHERE responsible_user_id IS NULL;
       UPDATE deal_stage_history SET responsible_user_id = 1 WHERE responsible_user_id IS NULL;
     `);
+
+    // Distribute initial portfolio across executives if deals are concentrated in <= 3 users
+    const distCheck = await pool.query("SELECT COUNT(DISTINCT responsible_user_id)::int AS cnt FROM deals");
+    if (distCheck.rows[0].cnt <= 3) {
+      const allUsersRes = await pool.query("SELECT id, username, name, role FROM users ORDER BY id ASC");
+      const byUser = Object.fromEntries(allUsersRes.rows.map((u) => [u.username, u]));
+      const valeria = byUser.valeria || allUsersRes.rows[0];
+      const sebastian = byUser.sebastian || allUsersRes.rows[0];
+      const camila = byUser.camila || allUsersRes.rows[0];
+      const andres = byUser.andres || allUsersRes.rows[0];
+
+      if (valeria) {
+        await pool.query("UPDATE accounts SET owner_user_id = $1 WHERE id IN (1, 6)", [valeria.id]);
+        await pool.query("UPDATE deals SET responsible_user_id = $1, owner_name = $2, last_changed_by = $2 WHERE id IN (1, 6, 7)", [
+          valeria.id,
+          valeria.name,
+        ]);
+      }
+      if (camila) {
+        await pool.query("UPDATE accounts SET owner_user_id = $1 WHERE id IN (2, 4, 7)", [camila.id]);
+        await pool.query(
+          "UPDATE deals SET responsible_user_id = $1, owner_name = $2, last_changed_by = $2 WHERE id IN (2, 4, 12, 13)",
+          [camila.id, camila.name]
+        );
+      }
+      if (sebastian) {
+        await pool.query("UPDATE accounts SET owner_user_id = $1 WHERE id = 3 OR LOWER(company_name) = 'cablesmart'", [
+          sebastian.id,
+        ]);
+        await pool.query(
+          "UPDATE deals SET responsible_user_id = $1, owner_name = $2, last_changed_by = $2 WHERE id IN (3, 8, 10, 11)",
+          [sebastian.id, sebastian.name]
+        );
+      }
+      if (andres) {
+        await pool.query("UPDATE accounts SET owner_user_id = $1 WHERE id = 5", [andres.id]);
+        await pool.query("UPDATE deals SET responsible_user_id = $1, owner_name = $2, last_changed_by = $2 WHERE id = 5", [
+          andres.id,
+          andres.name,
+        ]);
+      }
+    }
+
     console.log("[NexusPF-CRM] Enterprise RBAC Auth, Kanban Audit & Attachments Schema verified.");
   } catch (err) {
     console.error("[NexusPF-CRM] Schema migration notice:", err.message);
@@ -737,71 +781,174 @@ app.get("/api/health", async (_req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Executive Command Center Summary (Dashboard KPIs + All Entities)
+// 2. Executive Command Center Summary (RBAC Row-Level Scoped + Admin Segmentation)
 // ---------------------------------------------------------------------------
-app.get("/api/dashboard", async (_req, res) => {
+app.get("/api/dashboard", async (req, res) => {
   try {
+    const viewerId = Number(req.query.viewerId || 1);
+    const viewerRole = String(req.query.viewerRole || "SUPER_ADMIN").toUpperCase();
+
+    // Admin Global Segmentation Filters (Only applied when SUPER_ADMIN selects them)
+    const segOwnerId = req.query.segOwnerId && req.query.segOwnerId !== "ALL" ? Number(req.query.segOwnerId) : null;
+    const segBrand = req.query.segBrand && req.query.segBrand !== "ALL" ? String(req.query.segBrand) : null;
+    const segModality = req.query.segModality && req.query.segModality !== "ALL" ? String(req.query.segModality) : null;
+    const segCountry = req.query.segCountry && req.query.segCountry !== "ALL" ? String(req.query.segCountry) : null;
+    const segStage = req.query.segStage && req.query.segStage !== "ALL" ? String(req.query.segStage) : null;
+
     const [productsRes, accountsRes, dealsRes, logsRes, usersRes, histRes] = await Promise.all([
       pool.query("SELECT * FROM digital_products ORDER BY id ASC"),
-      pool.query("SELECT * FROM accounts ORDER BY id ASC"),
       pool.query(`
-        SELECT d.*, a.company_name, a.domain, a.industry, a.contact_name, a.contact_role,
-               p.name AS product_name, p.code AS product_code, p.category AS product_category
+        SELECT a.*, u.name AS owner_user_name, u.email AS owner_user_email, u.role_code AS owner_role_code
+        FROM accounts a
+        LEFT JOIN users u ON a.owner_user_id = u.id
+        ORDER BY a.id ASC
+      `),
+      pool.query(`
+        SELECT d.*, a.company_name, a.domain, a.industry, a.country, a.contact_name, a.contact_role,
+               p.name AS product_name, p.code AS product_code, p.category AS product_category,
+               u.name AS responsible_user_name, u.role_code AS responsible_role_code
         FROM deals d
         LEFT JOIN accounts a ON d.account_id = a.id
         LEFT JOIN digital_products p ON d.product_id = p.id
+        LEFT JOIN users u ON d.responsible_user_id = u.id
         ORDER BY d.updated_at DESC, d.id ASC
       `),
-      pool.query("SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 12"),
+      pool.query("SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 18"),
       pool.query(
         "SELECT id, username, name, email, role_code, role, brand_focus, avatar_initials, status, permissions_summary, created_at FROM users ORDER BY id ASC"
       ),
-      pool.query("SELECT * FROM deal_stage_history ORDER BY transition_date DESC, id DESC LIMIT 100"),
+      pool.query("SELECT * FROM deal_stage_history ORDER BY transition_date DESC, id DESC LIMIT 120"),
     ]);
 
-    const products = productsRes.rows;
-    const accounts = accountsRes.rows;
-    const deals = dealsRes.rows;
+    const allProducts = productsRes.rows;
+    const allAccounts = accountsRes.rows;
+    const allDeals = dealsRes.rows;
 
-    // Calculate live portfolio KPIs
-    const catalogMrrActive = products.reduce(
+    const availableCountries = Array.from(
+      new Set(allAccounts.map((a) => String(a.country || "Colombia / LATAM").trim()).filter(Boolean))
+    );
+
+    let scopedDeals = allDeals;
+    let scopedAccounts = allAccounts;
+
+    if (viewerRole === "SUPER_ADMIN") {
+      // Apply Admin Global Segmentation Filters
+      if (segOwnerId) {
+        scopedDeals = scopedDeals.filter((d) => Number(d.responsible_user_id) === segOwnerId);
+        scopedAccounts = scopedAccounts.filter(
+          (a) =>
+            Number(a.owner_user_id) === segOwnerId ||
+            scopedDeals.some((d) => Number(d.account_id) === Number(a.id))
+        );
+      }
+      if (segBrand) {
+        scopedDeals = scopedDeals.filter((d) => d.brand === segBrand);
+      }
+      if (segModality) {
+        scopedDeals = scopedDeals.filter((d) => d.modality === segModality);
+      }
+      if (segStage) {
+        scopedDeals = scopedDeals.filter((d) => d.stage === segStage);
+      }
+      if (segCountry) {
+        scopedAccounts = scopedAccounts.filter((a) =>
+          String(a.country || "").toLowerCase().includes(segCountry.toLowerCase())
+        );
+        const allowedAccIds = new Set(scopedAccounts.map((a) => Number(a.id)));
+        scopedDeals = scopedDeals.filter((d) => allowedAccIds.has(Number(d.account_id)));
+      }
+      // If Deal-level filters (brand/modality/stage) are active, keep accounts aligned with matching deals
+      if (segBrand || segModality || segStage) {
+        const dealAccIds = new Set(scopedDeals.map((d) => Number(d.account_id)));
+        scopedAccounts = scopedAccounts.filter((a) => dealAccIds.has(Number(a.id)));
+      }
+    } else if (viewerRole === "AUDITOR_VIEWER") {
+      // Read-only global supervision
+      scopedDeals = allDeals;
+      scopedAccounts = allAccounts;
+    } else if (viewerRole === "FINANCE_STRATEGIST") {
+      // Own deals + Specialty Stages (SIMULACION_FINACTIONABLE & NEGOCIACION)
+      scopedDeals = allDeals.filter(
+        (d) =>
+          Number(d.responsible_user_id) === viewerId ||
+          d.stage === "SIMULACION_FINACTIONABLE" ||
+          d.stage === "NEGOCIACION"
+      );
+      const visibleAccIds = new Set(scopedDeals.map((d) => Number(d.account_id)));
+      scopedAccounts = allAccounts.filter(
+        (a) => Number(a.owner_user_id) === viewerId || visibleAccIds.has(Number(a.id))
+      );
+    } else if (viewerRole === "SOLUTIONS_ARCHITECT") {
+      // Own deals + Specialty Stage (DEMO_TECNICA)
+      scopedDeals = allDeals.filter(
+        (d) => Number(d.responsible_user_id) === viewerId || d.stage === "DEMO_TECNICA"
+      );
+      const visibleAccIds = new Set(scopedDeals.map((d) => Number(d.account_id)));
+      scopedAccounts = allAccounts.filter(
+        (a) => Number(a.owner_user_id) === viewerId || visibleAccIds.has(Number(a.id))
+      );
+    } else {
+      // SALES_EXECUTIVE & PARTNER_MANAGER: Strict ownership isolation
+      scopedDeals = allDeals.filter((d) => Number(d.responsible_user_id) === viewerId);
+      const visibleAccIds = new Set(scopedDeals.map((d) => Number(d.account_id)));
+      scopedAccounts = allAccounts.filter(
+        (a) => Number(a.owner_user_id) === viewerId || visibleAccIds.has(Number(a.id))
+      );
+    }
+
+    const isUnfilteredGlobal =
+      (viewerRole === "SUPER_ADMIN" && !segOwnerId && !segBrand && !segModality && !segCountry && !segStage) ||
+      viewerRole === "AUDITOR_VIEWER";
+
+    const catalogProductsScoped =
+      segBrand ? allProducts.filter((p) => p.brand === segBrand) : allProducts;
+
+    const catalogMrrActive = catalogProductsScoped.reduce(
       (acc, p) => acc + Number(p.monthly_rent_mrr_usd) * Number(p.active_tenants),
       0
     );
-    const pipelineMrr = deals
+    const pipelineMrr = scopedDeals
       .filter((d) => d.modality !== "VENTA_CAPEX")
       .reduce((acc, d) => acc + Number(d.mrr_usd), 0);
-    const pipelineBuyout = deals
+    const pipelineBuyout = scopedDeals
       .filter((d) => d.modality === "VENTA_CAPEX")
       .reduce((acc, d) => acc + Number(d.buyout_dynamic_usd), 0);
-    const totalActiveTenants = products.reduce(
-      (acc, p) => acc + Number(p.active_tenants),
-      0
-    );
+    const totalActiveTenants = isUnfilteredGlobal
+      ? catalogProductsScoped.reduce((acc, p) => acc + Number(p.active_tenants), 0)
+      : scopedDeals.filter((d) => d.modality !== "VENTA_CAPEX").length;
     const avgMargin =
-      deals.length > 0
+      scopedDeals.length > 0
         ? (
-            deals.reduce((acc, d) => acc + Number(d.gross_margin_pct), 0) /
-            deals.length
+            scopedDeals.reduce((acc, d) => acc + Number(d.gross_margin_pct), 0) /
+            scopedDeals.length
           ).toFixed(1)
         : 91.5;
 
+    // For non-Admin roles or filtered Admin segments, MRR KPI shows the active segment/executive MRR
+    const effectiveMrrKpi = isUnfilteredGlobal ? catalogMrrActive + pipelineMrr : pipelineMrr;
+
+    const visibleDealIds = new Set(scopedDeals.map((d) => Number(d.id)));
+    const scopedHistory = histRes.rows.filter((h) => visibleDealIds.has(Number(h.deal_id)));
+
     res.json({
       kpis: {
-        activeCatalogMrrUsd: catalogMrrActive,
-        activeCatalogArrUsd: catalogMrrActive * 12,
+        activeCatalogMrrUsd: effectiveMrrKpi,
+        activeCatalogArrUsd: effectiveMrrKpi * 12,
         pipelineMrrUsd: pipelineMrr,
         pipelineBuyoutCapexUsd: pipelineBuyout,
         totalActiveTenants,
         avgGrossMarginPct: Number(avgMargin),
-        enrichedAccountsCount: accounts.filter((a) => a.ai_fit_score !== null).length,
-        totalAccountsCount: accounts.length,
+        enrichedAccountsCount: scopedAccounts.filter((a) => a.ai_fit_score !== null).length,
+        totalAccountsCount: scopedAccounts.length,
+        totalDealsCount: scopedDeals.length,
+        isGlobalView: isUnfilteredGlobal,
       },
-      products,
-      accounts,
-      deals,
+      availableCountries,
+      products: allProducts,
+      accounts: scopedAccounts,
+      deals: scopedDeals,
       users: usersRes.rows,
-      stageHistory: histRes.rows,
+      stageHistory: scopedHistory,
       activityLogs: logsRes.rows,
     });
   } catch (error) {
@@ -1674,8 +1821,49 @@ app.post("/api/zero-admin", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. Pipeline Stage Transition (Drag & Drop Audited), History & AI Copilot
+// 6. Pipeline Stage Transition (Drag & Drop Audited), Reassignment, History & AI Copilot
 // ---------------------------------------------------------------------------
+app.patch("/api/deals/:id/assign-owner", async (req, res) => {
+  try {
+    const dealId = Number(req.params.id);
+    const { targetUserId, adminName = "Super Admin" } = req.body;
+    const uRes = await pool.query("SELECT id, name, email, role FROM users WHERE id = $1", [Number(targetUserId)]);
+    if (uRes.rows.length === 0) {
+      return res.status(404).json({ error: "Ejecutivo destino no encontrado." });
+    }
+    const targetUser = uRes.rows[0];
+    const dRes = await pool.query(
+      `UPDATE deals
+       SET responsible_user_id = $1,
+           owner_name = $2,
+           last_changed_by = $2,
+           last_changed_role = $3,
+           updated_at = NOW()
+       WHERE id = $4
+       RETURNING *`,
+      [targetUser.id, targetUser.name, targetUser.role, dealId]
+    );
+    if (dRes.rows.length === 0) {
+      return res.status(404).json({ error: "Oportunidad no encontrada." });
+    }
+    const deal = dRes.rows[0];
+    if (deal.account_id) {
+      await pool.query("UPDATE accounts SET owner_user_id = $1 WHERE id = $2", [targetUser.id, deal.account_id]);
+    }
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('DEAL_OWNER_REASSIGNED', $1, $2)`,
+      [
+        `[${adminName}] reasignó la oportunidad "${deal.title}" al ejecutivo ${targetUser.name}`,
+        JSON.stringify({ dealId, targetUser }),
+      ]
+    );
+    res.json({ ok: true, deal, targetUser });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.get("/api/deals/:id/history", async (req, res) => {
   try {
     const dealId = Number(req.params.id);

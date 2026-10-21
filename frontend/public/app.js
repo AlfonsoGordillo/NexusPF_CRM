@@ -19,6 +19,14 @@ const state = {
   rolesMeta: {},
   stageHistory: [],
   activityLogs: [],
+  availableCountries: [],
+  adminSegmentation: {
+    ownerId: "ALL",
+    brand: "ALL",
+    modality: "ALL",
+    country: "ALL",
+    stage: "ALL",
+  },
   kanbanFilter: "ALL",
   kanbanOwnerFilter: "ALL",
   whatIfMode: false,
@@ -292,19 +300,45 @@ document.querySelectorAll(".nav-btn").forEach((btn) => {
   btn.addEventListener("click", () => window.switchView(btn.dataset.view));
 });
 
-// Load All Data from Backend
+// Load All Data from Backend (Scoped by Active User Role + Admin Segmentation Filters)
 async function loadDashboard() {
   try {
-    const res = await fetch("/api/dashboard");
+    const u = state.currentUser || { id: 1, role_code: "SUPER_ADMIN" };
+    const seg = state.adminSegmentation || {};
+    const qs = new URLSearchParams({
+      viewerId: String(u.id || 1),
+      viewerRole: String(u.role_code || "SUPER_ADMIN"),
+      segOwnerId: seg.ownerId || "ALL",
+      segBrand: seg.brand || "ALL",
+      segModality: seg.modality || "ALL",
+      segCountry: seg.country || "ALL",
+      segStage: seg.stage || "ALL",
+    });
+
+    const res = await fetch(`/api/dashboard?${qs.toString()}`);
     const data = await res.json();
     state.kpis = data.kpis || {};
     state.products = data.products || [];
     state.accounts = data.accounts || [];
     state.deals = data.deals || [];
     state.users = data.users || [];
+    state.availableCountries = data.availableCountries || [];
     state.rolesMeta = data.rolesMeta || {};
     state.stageHistory = data.stageHistory || [];
     state.activityLogs = data.activityLogs || [];
+
+    // Sync currentUser with authoritative DB user record (e.g., if role_code or role was updated)
+    if (state.currentUser?.id && state.users.length) {
+      const freshUser = state.users.find((usr) => Number(usr.id) === Number(state.currentUser.id));
+      if (freshUser) {
+        const prevRole = state.currentUser.role_code;
+        state.currentUser = freshUser;
+        localStorage.setItem("nexuspf_auth_user", JSON.stringify(freshUser));
+        if (prevRole && prevRole !== freshUser.role_code) {
+          return loadDashboard();
+        }
+      }
+    }
 
     if (state.whatIfMode) {
       state.realDealsBackup = JSON.parse(JSON.stringify(state.deals));
@@ -312,6 +346,7 @@ async function loadDashboard() {
 
     applyEnvironmentPreferences();
     renderAuthUserUI();
+    applyRoleBasedVisibilityAndSegmentationUI();
     populateKanbanOwnerFilter();
     populateNewDealDropdowns();
     renderDashboardView();
@@ -322,6 +357,142 @@ async function loadDashboard() {
     populateSimulatorSelect();
   } catch (err) {
     console.error("Failed loading dashboard:", err);
+  }
+}
+
+window.applyAdminSegmentation = async function () {
+  state.adminSegmentation = {
+    ownerId: document.getElementById("seg-owner")?.value || "ALL",
+    brand: document.getElementById("seg-brand")?.value || "ALL",
+    modality: document.getElementById("seg-modality")?.value || "ALL",
+    country: document.getElementById("seg-country")?.value || "ALL",
+    stage: document.getElementById("seg-stage")?.value || "ALL",
+  };
+  await loadDashboard();
+};
+
+window.resetAdminSegmentation = async function () {
+  state.adminSegmentation = {
+    ownerId: "ALL",
+    brand: "ALL",
+    modality: "ALL",
+    country: "ALL",
+    stage: "ALL",
+  };
+  ["seg-owner", "seg-brand", "seg-modality", "seg-country", "seg-stage"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "ALL";
+  });
+  await loadDashboard();
+  showToast("↺ Filtros de segmentación global restablecidos.");
+};
+
+function applyRoleBasedVisibilityAndSegmentationUI() {
+  const u = state.currentUser || { id: 1, name: "Alfonso Gordillo", role_code: "SUPER_ADMIN" };
+  const roleCode = String(u.role_code || "SUPER_ADMIN").toUpperCase();
+
+  // 1. Allowed Views Matrix per Role
+  const allowedViewsByRole = {
+    SUPER_ADMIN: ["dashboard", "smartgrid", "kanban", "studio", "catalog", "team", "mcp"],
+    FINANCE_STRATEGIST: ["dashboard", "smartgrid", "kanban", "studio", "catalog"],
+    SOLUTIONS_ARCHITECT: ["dashboard", "smartgrid", "kanban", "catalog", "mcp"],
+    SALES_EXECUTIVE: ["dashboard", "smartgrid", "kanban", "studio", "catalog"],
+    PARTNER_MANAGER: ["dashboard", "smartgrid", "kanban", "studio", "catalog"],
+    AUDITOR_VIEWER: ["dashboard", "kanban", "studio", "catalog"],
+  };
+  const allowedViews = allowedViewsByRole[roleCode] || allowedViewsByRole.SALES_EXECUTIVE;
+
+  // Show/hide Sidebar navigation buttons
+  document.querySelectorAll(".nav-btn").forEach((btn) => {
+    const v = btn.dataset.view;
+    btn.style.display = allowedViews.includes(v) ? "flex" : "none";
+  });
+
+  // Show/hide Mobile bottom navigation buttons
+  document.querySelectorAll(".mobile-nav-item[data-mview]").forEach((btn) => {
+    const v = btn.dataset.mview;
+    btn.style.display = allowedViews.includes(v) ? "flex" : "none";
+  });
+
+  // If currently open view is not allowed for this role, redirect to dashboard
+  const activePanel = document.querySelector(".view-panel.active");
+  if (activePanel) {
+    const currentViewId = activePanel.id.replace("view-", "");
+    if (!allowedViews.includes(currentViewId)) {
+      window.switchView("dashboard");
+    }
+  }
+
+  // 2. Show/Hide Admin Global Segmentation Bar vs Role Scope Banner
+  const adminBar = document.getElementById("admin-segmentation-bar");
+  const roleBanner = document.getElementById("role-scope-banner");
+  const roleBannerText = document.getElementById("role-scope-banner-text");
+
+  if (roleCode === "SUPER_ADMIN") {
+    if (adminBar) adminBar.style.display = "block";
+    if (roleBanner) roleBanner.style.display = "none";
+
+    // Populate #seg-owner and #seg-country preserving current selection
+    const ownerSel = document.getElementById("seg-owner");
+    if (ownerSel && state.users.length) {
+      const curOwner = state.adminSegmentation?.ownerId || "ALL";
+      ownerSel.innerHTML =
+        `<option value="ALL">Todos los Ejecutivos (${state.users.length})</option>` +
+        state.users
+          .map((usr) => `<option value="${usr.id}">👤 ${usr.name} (${usr.role_code})</option>`)
+          .join("");
+      ownerSel.value = curOwner;
+    }
+
+    const countrySel = document.getElementById("seg-country");
+    if (countrySel && state.availableCountries.length) {
+      const curCountry = state.adminSegmentation?.country || "ALL";
+      countrySel.innerHTML =
+        `<option value="ALL">Todos los Países</option>` +
+        state.availableCountries.map((c) => `<option value="${c}">🌎 ${c}</option>`).join("");
+      countrySel.value = curCountry;
+    }
+
+    const badge = document.getElementById("seg-summary-badge");
+    if (badge) {
+      const isFiltered = Object.values(state.adminSegmentation || {}).some((v) => v && v !== "ALL");
+      badge.textContent = isFiltered
+        ? `Segmento Activo: ${state.accounts.length} Clientes · ${state.deals.length} Oportunidades`
+        : `Vista Global: ${state.accounts.length} Clientes · ${state.deals.length} Oportunidades`;
+    }
+  } else {
+    if (adminBar) adminBar.style.display = "none";
+    if (roleBanner && roleBannerText) {
+      roleBanner.style.display = "flex";
+      if (roleCode === "SOLUTIONS_ARCHITECT") {
+        roleBannerText.innerHTML = `🔒 <strong>Tablero Especialista de Arquitectura (${u.name}):</strong> Viendo tus cuentas/oportunidades propias + todas las oportunidades en etapa <strong>2. DEMO TÉCNICA</strong> (<strong>${state.deals.length}</strong> deals · <strong>${state.accounts.length}</strong> clientes).`;
+      } else if (roleCode === "FINANCE_STRATEGIST") {
+        roleBannerText.innerHTML = `🔒 <strong>Tablero Especialista Financiero (${u.name}):</strong> Viendo tus cuentas/oportunidades propias + todas las oportunidades en <strong>3. SIMULACIÓN FINACTIONABLE</strong> y <strong>4. NEGOCIACIÓN</strong> (<strong>${state.deals.length}</strong> deals · <strong>${state.accounts.length}</strong> clientes).`;
+      } else if (roleCode === "AUDITOR_VIEWER") {
+        roleBannerText.innerHTML = `👁️ <strong>Modo Auditoría & Junta Directiva (${u.name}):</strong> Supervisión en modo <strong>Solo Lectura</strong> (sin permisos de edición ni borrado).`;
+      } else {
+        roleBannerText.innerHTML = `🔒 <strong>Mi Tablero Personal (${u.name} · ${roleCode}):</strong> Viendo exclusivamente tus <strong>${state.accounts.length} Clientes</strong> y tus <strong>${state.deals.length} Oportunidades Comerciales</strong> asignadas.`;
+      }
+    }
+  }
+
+  // 3. Adapt Dashboard Title according to Role
+  const dashTitle = document.querySelector("#view-dashboard .section-title");
+  if (dashTitle) {
+    if (roleCode === "SUPER_ADMIN") {
+      dashTitle.textContent = t(
+        "Command Center Global — Dirección General (Todos los Tableros)",
+        "Global Executive Command Center (All Dashboards)"
+      );
+    } else if (roleCode === "FINANCE_STRATEGIST") {
+      dashTitle.textContent = `Tablero Financiero FinActionable — ${u.name}`;
+    } else if (roleCode === "SOLUTIONS_ARCHITECT") {
+      dashTitle.textContent = `Tablero de Arquitectura & Demos Técnicas — ${u.name}`;
+    } else if (roleCode === "AUDITOR_VIEWER") {
+      dashTitle.textContent = `Tablero de Supervisión & Auditoría — ${u.name}`;
+    } else {
+      dashTitle.textContent = `Mi Tablero Comercial — ${u.name}`;
+    }
   }
 }
 
@@ -539,12 +710,17 @@ const accountModal = document.getElementById("account-modal");
 window.openAccountModal = function (accountId = null) {
   const modalEl = document.getElementById("account-modal") || accountModal;
   if (!modalEl) return;
+  const isAdmin = state.currentUser?.role_code === "SUPER_ADMIN";
   const ownerSelect = document.getElementById("acc-owner-user");
   if (ownerSelect) {
     const usersList = state.users && state.users.length ? state.users : [state.currentUser];
     ownerSelect.innerHTML = usersList
       .map((u) => `<option value="${u.id}">👤 ${u.name} (${u.role} · ${u.email})</option>`)
       .join("");
+    ownerSelect.disabled = !isAdmin;
+    ownerSelect.title = isAdmin
+      ? "Como SUPER_ADMIN puedes asignar o reasignar la cartera a cualquier ejecutivo"
+      : "Solo el Administrador (SUPER_ADMIN) puede reasignar clientes a otro ejecutivo";
   }
 
   const titleEl = document.getElementById("acc-modal-title") || document.getElementById("account-modal-title");
@@ -1399,6 +1575,22 @@ const newDealModal = document.getElementById("new-deal-modal");
 function populateNewDealDropdowns() {
   const accSel = document.getElementById("nd-account") || document.getElementById("nd-account-id");
   const prodSel = document.getElementById("nd-product") || document.getElementById("nd-product-id");
+  const ownerSel = document.getElementById("nd-owner-user");
+  const isAdmin = state.currentUser?.role_code === "SUPER_ADMIN";
+
+  if (ownerSel) {
+    const usersList = state.users && state.users.length ? state.users : [state.currentUser];
+    ownerSel.innerHTML = usersList
+      .map((u) => `<option value="${u.id}">👤 ${u.name} (${u.role} · ${u.email})</option>`)
+      .join("");
+    if (state.currentUser?.id) {
+      ownerSel.value = String(state.currentUser.id);
+    }
+    ownerSel.disabled = !isAdmin;
+    ownerSel.title = isAdmin
+      ? "Como SUPER_ADMIN puedes asignar la oportunidad a cualquier ejecutivo"
+      : "Oportunidad asignada automáticamente a tu cartera comercial";
+  }
 
   if (accSel && Array.isArray(state.accounts)) {
     const currentVal = accSel.value;
@@ -1521,6 +1713,10 @@ window.saveNewDealKanban = async function () {
     return;
   }
 
+  const selectedOwnerId = Number(document.getElementById("nd-owner-user")?.value || state.currentUser.id);
+  const selectedOwner =
+    (state.users || []).find((u) => Number(u.id) === selectedOwnerId) || state.currentUser;
+
   const res = await fetch("/api/deals", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1539,10 +1735,10 @@ window.saveNewDealKanban = async function () {
       buyout_base_usd,
       setup_fee_usd,
       infra_cost_monthly_usd,
-      responsibleUserId: state.currentUser.id,
-      responsibleName: state.currentUser.name,
-      responsibleEmail: state.currentUser.email,
-      responsibleRole: state.currentUser.role,
+      responsibleUserId: selectedOwner.id,
+      responsibleName: selectedOwner.name,
+      responsibleEmail: selectedOwner.email,
+      responsibleRole: selectedOwner.role,
     }),
   });
   const data = await res.json();
@@ -1552,7 +1748,7 @@ window.saveNewDealKanban = async function () {
   }
   closeNewDealModal();
   await loadDashboard();
-  showToast(`✅ Oportunidad "${title}" creada en ${stage} y firmada por ${state.currentUser.name}.`);
+  showToast(`✅ Oportunidad "${title}" creada en ${stage} y asignada a ${selectedOwner.name}.`);
 };
 
 // Deal Audit History Modal
@@ -1746,6 +1942,7 @@ window.submitGateLogin = async function () {
 
     state.currentUser = data.user;
     localStorage.setItem("nexuspf_auth_user", JSON.stringify(data.user));
+    state.adminSegmentation = { ownerId: "ALL", brand: "ALL", modality: "ALL", country: "ALL", stage: "ALL" };
     closeLoginScreenGate();
     await loadDashboard();
     showToast(`🔐 Bienvenido ${data.user.name} (${data.user.role}).`);
@@ -1835,12 +2032,11 @@ window.switchActiveExecutive = async function (userId) {
   if (res.ok && data.user) {
     state.currentUser = data.user;
     localStorage.setItem("nexuspf_auth_user", JSON.stringify(data.user));
+    state.adminSegmentation = { ownerId: "ALL", brand: "ALL", modality: "ALL", country: "ALL", stage: "ALL" };
     closeLoginScreenGate();
     renderAuthUserUI();
-    populateKanbanOwnerFilter();
-    renderKanbanView();
-    renderTeamUsersView();
-    showToast(`🔐 Sesión cambiada a: ${data.user.name} (${data.user.role}).`);
+    await loadDashboard();
+    showToast(`🔐 Sesión cambiada a: ${data.user.name} (${data.user.role} · ${data.user.role_code}).`);
   }
 };
 
@@ -2121,9 +2317,12 @@ document.getElementById("btn-save-simulation").addEventListener("click", () => {
   runStudioSimulation(true);
 });
 
-// View 5: Digital Products Catalog (Full CRUD: Create, Read, Update, Scale Tenants, Delete)
+// View 5: Digital Products Catalog (Full CRUD for Admin/Architect/Finance; Read-Only Consultation for Sales/Partner/Auditor)
 function renderCatalogView() {
   const container = document.getElementById("catalog-cards-container");
+  const roleCode = state.currentUser?.role_code || "SALES_EXECUTIVE";
+  const canEditCatalog = ["SUPER_ADMIN", "FINANCE_STRATEGIST", "SOLUTIONS_ARCHITECT"].includes(roleCode);
+
   const productCards = state.products
     .map(
       (p) => `
@@ -2165,6 +2364,9 @@ function renderCatalogView() {
             </div>
           </div>
 
+          ${
+            canEditCatalog
+              ? `
           <div style="display:flex; justify-content:space-between; gap:6px;">
             <button class="btn btn-emerald" style="padding:6px 10px; font-size:11.5px; flex:1; justify-content:center;" onclick="incrementProductTenant(${p.id})">
               +1 Tenant Renta
@@ -2175,14 +2377,20 @@ function renderCatalogView() {
             <button class="btn" style="padding:6px 10px; font-size:11.5px; color:var(--accent-rose); border-color:rgba(244,63,94,0.35);" onclick="deleteProductCrud(${p.id})">
               🗑️
             </button>
-          </div>
+          </div>`
+              : `
+          <div style="padding:7px 10px; border-radius:8px; background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.25); font-size:11.5px; color:var(--accent-cyan); text-align:center; font-family:var(--font-mono);">
+            👁️ Modo Consulta Comercial — Solo Lectura
+          </div>`
+          }
         </div>
       </div>
     `
     )
     .join("");
 
-  const addNewCard = `
+  const addNewCard = canEditCatalog
+    ? `
     <div class="product-card" onclick="openProductModal()" style="border:2px dashed rgba(16,185,129,0.45); background:rgba(16,185,129,0.03); cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:290px;">
       <div style="width:52px; height:52px; border-radius:50%; background:rgba(16,185,129,0.15); border:1px solid var(--accent-emerald); display:flex; align-items:center; justify-content:center; font-size:26px; color:var(--accent-emerald); margin-bottom:12px;">
         +
@@ -2194,7 +2402,8 @@ function renderCatalogView() {
         Registra un nuevo software o agente de <strong>projectsfactory.io</strong> o <strong>finanactionable.co</strong> con sus precios de Venta CapEx y Renta MRR.
       </p>
     </div>
-  `;
+  `
+    : "";
 
   container.innerHTML = productCards + addNewCard;
 }
