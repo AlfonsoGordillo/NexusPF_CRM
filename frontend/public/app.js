@@ -2424,7 +2424,11 @@ document.getElementById("btn-submit-zero-admin").addEventListener("click", async
   const res = await fetch("/api/zero-admin", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rawText }),
+    body: JSON.stringify({
+      rawText,
+      ownerUserId: state.currentUser?.id || 1,
+      ownerName: state.currentUser?.name || "Dirección Comercial PF",
+    }),
   });
   const data = await res.json();
 
@@ -2434,13 +2438,16 @@ document.getElementById("btn-submit-zero-admin").addEventListener("click", async
       <div style="font-weight:700; color:var(--accent-emerald); margin-bottom:6px;">
         ✓ Cuenta y Oportunidad Creadas Automáticamente en PostgreSQL
       </div>
-      <div><strong>Empresa:</strong> ${ex.companyName} · <strong>Contacto:</strong> ${ex.contactName}</div>
+      <div><strong>Empresa:</strong> ${ex.companyName} · <strong>Contacto:</strong> ${ex.contactName} ${
+      ex.contactEmail ? `(<span style="font-family:var(--font-mono); color:var(--accent-cyan);">${ex.contactEmail}</span>)` : ""
+    }</div>
+      <div><strong>Países / Operación:</strong> ${ex.country || "Colombia / LATAM"}</div>
       <div><strong>Activo Digital:</strong> ${ex.productName} (${ex.brand})</div>
       <div><strong>Modalidad Detectada:</strong> ${ex.modality} — MRR: <strong>${fmtUsd(ex.mrrUsd)}/mes</strong> | Buyout: <strong>${fmtUsd(ex.buyoutUsd)}</strong></div>
       <div><strong>Punto de Equilibrio FinActionable:</strong> Mes ${ex.breakevenMonths} · LTV 24m: <strong>${fmtUsd(ex.ltv24mUsd)}</strong> (Margen ${ex.grossMarginPct}%)</div>
     `;
     await loadDashboard();
-    showToast(`✅ Zero-Admin creó "${ex.companyName}" en PostgreSQL.`);
+    showToast(`✅ Zero-Admin creó "${ex.companyName}" (${ex.contactName}) en PostgreSQL.`);
   } else {
     resBox.innerHTML = `<span style="color:var(--accent-rose);">Error: ${data.error}</span>`;
   }

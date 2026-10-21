@@ -1094,9 +1094,198 @@ app.post("/api/magic-enrich-all", async (_req, res) => {
 // ---------------------------------------------------------------------------
 // 5. Zero-Admin Command Bar (Ctrl+K) — Natural Language Deal & Account Ingest
 // ---------------------------------------------------------------------------
+function extractZeroAdminEntities(rawText) {
+  const clean = String(rawText || "").replace(/\s+/g, " ").trim();
+
+  const contactStopwords = new Set([
+    "de",
+    "del",
+    "la",
+    "el",
+    "los",
+    "las",
+    "en",
+    "por",
+    "para",
+    "con",
+    "sin",
+    "sobre",
+    "quien",
+    "quienes",
+    "que",
+    "le",
+    "les",
+    "se",
+    "nos",
+    "me",
+    "interesado",
+    "interesada",
+    "interesa",
+    "buscan",
+    "busca",
+    "quieren",
+    "quiere",
+    "necesitan",
+    "necesita",
+    "solicitan",
+    "tiene",
+    "tienen",
+    "empresa",
+    "compañía",
+    "compania",
+    "firma",
+    "grupo",
+    "banco",
+    "clínica",
+    "clinica",
+    "constructora",
+    "corporación",
+    "corporacion",
+    "eps",
+    "ips",
+    "cfo",
+    "ceo",
+    "cto",
+    "coo",
+    "director",
+    "directora",
+    "gerente",
+    "vp",
+    "presidente",
+    "socio",
+    "fundador",
+  ]);
+
+  let contactName = "Dirección Ejecutiva";
+  const triggerRegex =
+    /(?:habl[eé]\s+con|reuni[oó]n\s+con|convers[eé]\s+con|llamada\s+con|contacto\s+con|me\s+reun[ií]\s+con|contacto\s*:|\bcon)\s+(?:el\s+|la\s+)?([^\n,.;:]+)/i;
+  const triggerMatch = clean.match(triggerRegex);
+  if (triggerMatch) {
+    const tokens = triggerMatch[1].trim().split(/\s+/);
+    const picked = [];
+    for (const tok of tokens) {
+      const bare = tok.replace(/[.,;:()]/g, "");
+      if (!bare) continue;
+      const lowerTok = bare.toLowerCase();
+      if (contactStopwords.has(lowerTok)) break;
+      const isTitle = /^(?:Dr\.?|Dra\.?|Ing\.?|Lic\.?|Sr\.?|Sra\.?)$/i.test(tok);
+      const isCapName = /^[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚáéíóúñÑ-]+$/.test(bare);
+      if (isTitle || isCapName) {
+        picked.push(isTitle ? tok : bare);
+        if (picked.length >= 4) break;
+      } else {
+        break;
+      }
+    }
+    if (picked.length > 0) {
+      contactName = picked.join(" ");
+    }
+  }
+
+  const companyClauseStopwords = new Set([
+    "le",
+    "les",
+    "quiere",
+    "quieren",
+    "busca",
+    "buscan",
+    "interesa",
+    "necesita",
+    "necesitan",
+    "solicita",
+    "solicitan",
+    "para",
+    "por",
+    "donde",
+    "que",
+    "sobre",
+    "están",
+    "estan",
+    "tiene",
+    "tienen",
+  ]);
+
+  function trimCompanyPhrase(phrase) {
+    const words = String(phrase || "").trim().split(/\s+/);
+    const out = [];
+    for (const w of words) {
+      const cleanW = w.replace(/[.,;:()]/g, "");
+      if (!cleanW) continue;
+      if (companyClauseStopwords.has(cleanW.toLowerCase())) break;
+      out.push(cleanW);
+      if (out.length >= 6) break;
+    }
+    return out.join(" ").trim();
+  }
+
+  let companyName = "";
+
+  // 1) Look right after extracted contactName: "... <contactName> de (la Empresa) <Company>"
+  if (contactName && contactName !== "Dirección Ejecutiva") {
+    const escapedContact = contactName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const afterContactRegex = new RegExp(
+      escapedContact +
+        "\\s+(?:de(?:\\s+la|\\s+el)?|del|en|@)\\s+(?:(?:empresa|compa[ñn][ií]a|firma|entidad|cliente)\\s+)?([^\\n,.;:]+)",
+      "i"
+    );
+    const mAfter = clean.match(afterContactRegex);
+    if (mAfter && mAfter[1]) {
+      companyName = trimCompanyPhrase(mAfter[1]);
+    }
+  }
+
+  // 2) Look for explicit "Empresa / Compañía / Firma / Cliente <Name>" anywhere in the text
+  if (!companyName) {
+    const mExplicit = clean.match(
+      /\b(?:de\s+la\s+|de\s+el\s+|la\s+|el\s+)?(?:empresa|compa[ñn][ií]a|firma|cliente)\s+([A-ZÁÉÍÓÚÑ0-9][^\n,.;:]+)/i
+    );
+    if (mExplicit && mExplicit[1]) {
+      companyName = trimCompanyPhrase(mExplicit[1]);
+    }
+  }
+
+  // 3) Look for institutional prefixes that are part of the brand name ("Grupo X", "Banco Y", "Clínica Z", "EPS W", "Constructora V")
+  if (!companyName) {
+    const mInst = clean.match(
+      /\b((?:Grupo|Cl[ií]nica|Constructora|Banco|Corporaci[oó]n|EPS|IPS|Fondo|Aseguradora|Fintech|Inmobiliaria)\s+[A-ZÁÉÍÓÚÑ0-9][^\n,.;:]+)/i
+    );
+    if (mInst && mInst[1]) {
+      companyName = trimCompanyPhrase(mInst[1]);
+    }
+  }
+
+  if (!companyName) {
+    companyName = "Corporación Digital Latam";
+  }
+
+  // Countries / Multi-country operation detection
+  const knownCountries = [
+    ["Colombia", /\bcolombia\b/i],
+    ["Ecuador", /\becuador\b/i],
+    ["United States", /\b(?:united states|estados unidos|ee\.?\s*uu\.?|usa|miami)\b/i],
+    ["México", /\bm[eé]xico\b/i],
+    ["Perú", /\bper[uú]\b/i],
+    ["Chile", /\bchile\b/i],
+    ["Panamá", /\bpanam[aá]\b/i],
+    ["Costa Rica", /\bcosta rica\b/i],
+    ["España", /\bespa[ñn]a\b/i],
+    ["Brasil", /\bbrasil\b/i],
+    ["Argentina", /\bargentina\b/i],
+  ];
+  const detectedCountries = knownCountries.filter(([, rx]) => rx.test(clean)).map(([name]) => name);
+  const country =
+    detectedCountries.length > 1
+      ? detectedCountries.slice(0, -1).join(", ") + " & " + detectedCountries[detectedCountries.length - 1]
+      : detectedCountries.length === 1
+      ? detectedCountries[0]
+      : "Colombia / LATAM";
+
+  return { companyName, contactName, country, detectedCountries };
+}
+
 app.post("/api/zero-admin", async (req, res) => {
   try {
-    const { rawText = "" } = req.body;
+    const { rawText = "", ownerUserId = 1, ownerName = "Dirección Comercial PF" } = req.body;
     if (!rawText.trim()) {
       return res.status(400).json({ error: "Texto o transcripción requerida" });
     }
@@ -1147,43 +1336,29 @@ app.post("/api/zero-admin", async (req, res) => {
       else if (val >= 250 && val < 1500) mrrUsd = val;
     }
 
-    // Extract Company & Contact Name heuristics
-    const companyMatch = rawText.match(
-      /(?:empresa|grupo|clínica|constructora|banco|corporación|compañía|de)\s+([A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s.&-]{2,35})/
-    );
-    const contactMatch = rawText.match(
-      /(?:con|hablé con|reunión con|contacto|director|cfo|ceo)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)/i
-    );
+    // Extract Company, Contact Name & Countries accurately
+    const { companyName, contactName, country, detectedCountries } = extractZeroAdminEntities(rawText);
 
-    const companyName = companyMatch
-      ? companyMatch[1].trim().replace(/[,.].*$/, "")
-      : " Corporación Digital Latam";
-    const contactName = contactMatch ? contactMatch[1].trim() : "Dirección Ejecutiva";
     const domain =
       companyName
         .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9]/g, "")
-        .slice(0, 18) + ".co";
+        .slice(0, 18) + (detectedCountries.includes("United States") ? ".com" : ".co");
 
-    // Create or find account
-    const accInsert = await pool.query(
-      `INSERT INTO accounts
-        (company_name, domain, industry, country, employee_range, contact_name, contact_role, contact_email, ai_fit_score, ai_recommended_product, ai_recommended_modality, ai_enriched_at)
-       VALUES ($1, $2, $3, 'Colombia / LATAM', '100-300', $4, 'Decisor Ejecutivo', $5, 95, $6, $7, NOW())
-       RETURNING *`,
-      [
-        companyName,
-        domain,
-        matchedProduct.brand === "finanactionable.co" ? "Finanzas & Operaciones B2B" : "Tecnología & Servicios",
-        contactName,
-        `contacto@${domain}`,
-        matchedProduct.name,
-        modality === "VENTA_CAPEX"
-          ? `VENTA_CAPEX ($${buyoutUsd.toLocaleString("en-US")})`
-          : `RENTA_MRR ($${mrrUsd}/mes + $${setupUsd} Setup)`,
-      ]
-    );
-    const newAccount = accInsert.rows[0];
+    const nameParts = contactName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z\s]/g, "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    const emailUser =
+      nameParts.length >= 2
+        ? `${nameParts[0][0].toLowerCase()}${nameParts[nameParts.length - 1].toLowerCase()}`
+        : "contacto";
+    const contactEmail = `${emailUser}@${domain}`;
 
     const econ = computeFinActionableEconomics({
       buyoutPrice: buyoutUsd,
@@ -1193,13 +1368,84 @@ app.post("/api/zero-admin", async (req, res) => {
       engHours: Number(matchedProduct.eng_hours_base),
     });
 
-    const dealTitle = `${matchedProduct.name} — ${companyName}`;
+    const aiInsight = `Operación en ${country}. ${
+      modality === "VENTA_CAPEX"
+        ? `Venta Llave en Mano ($${buyoutUsd.toLocaleString("en-US")}) genera liquidez inmediata.`
+        : `Renta mensual ($${mrrUsd}/mes) alcanza equilibrio en el mes ${econ.breakevenMonths} con LTV 24m de $${econ.ltv24mRent.toLocaleString("en-US")} (${econ.grossMarginRentPct}% margen).`
+    }`;
+    const aiIcebreaker = `Hola ${contactName.split(" ")[0]}, estructuramos la propuesta de ${matchedProduct.name} para la operación de ${companyName} en ${country}.`;
+
+    // Upsert or create account
+    const existingAcc = await pool.query(
+      "SELECT id FROM accounts WHERE LOWER(company_name) = LOWER($1) LIMIT 1",
+      [companyName]
+    );
+    let newAccount;
+    if (existingAcc.rows.length > 0) {
+      const upd = await pool.query(
+        `UPDATE accounts
+         SET contact_name = $1,
+             contact_email = $2,
+             country = $3,
+             owner_user_id = COALESCE($4, owner_user_id),
+             ai_fit_score = 96,
+             ai_recommended_product = $5,
+             ai_recommended_modality = $6,
+             ai_finactionable_insight = $7,
+             ai_personalized_icebreaker = $8,
+             ai_enriched_at = NOW()
+         WHERE id = $9
+         RETURNING *`,
+        [
+          contactName,
+          contactEmail,
+          country,
+          Number(ownerUserId) || 1,
+          matchedProduct.name,
+          modality === "VENTA_CAPEX"
+            ? `VENTA_CAPEX ($${buyoutUsd.toLocaleString("en-US")})`
+            : `RENTA_MRR ($${mrrUsd}/mes + $${setupUsd} Setup)`,
+          aiInsight,
+          aiIcebreaker,
+          existingAcc.rows[0].id,
+        ]
+      );
+      newAccount = upd.rows[0];
+    } else {
+      const accInsert = await pool.query(
+        `INSERT INTO accounts
+          (company_name, domain, industry, country, employee_range, contact_name, contact_role, contact_email, owner_user_id, ai_fit_score, ai_recommended_product, ai_recommended_modality, ai_finactionable_insight, ai_personalized_icebreaker, ai_enriched_at)
+         VALUES ($1, $2, $3, $4, '100-300', $5, 'Decisor Ejecutivo', $6, $7, 96, $8, $9, $10, $11, NOW())
+         RETURNING *`,
+        [
+          companyName,
+          domain,
+          matchedProduct.brand === "finanactionable.co" ? "Finanzas & Operaciones B2B" : "Tecnología & Servicios",
+          country,
+          contactName,
+          contactEmail,
+          Number(ownerUserId) || 1,
+          matchedProduct.name,
+          modality === "VENTA_CAPEX"
+            ? `VENTA_CAPEX ($${buyoutUsd.toLocaleString("en-US")})`
+            : `RENTA_MRR ($${mrrUsd}/mes + $${setupUsd} Setup)`,
+          aiInsight,
+          aiIcebreaker,
+        ]
+      );
+      newAccount = accInsert.rows[0];
+    }
+
+    const dealTitle =
+      detectedCountries.length > 1
+        ? `${matchedProduct.name} — ${companyName} (${country})`
+        : `${matchedProduct.name} — ${companyName}`;
     const dealInsert = await pool.query(
       `INSERT INTO deals
         (title, account_id, product_id, brand, modality, stage, probability,
          buyout_dynamic_usd, setup_fee_usd, mrr_usd, contract_months, infra_cost_monthly_usd,
-         cac_estimated_usd, breakeven_months, ltv_24m_usd, gross_margin_pct, next_action, source_channel)
-       VALUES ($1,$2,$3,$4,$5,'DEMO_TECNICA',65,$6,$7,$8,24,$9,950,$10,$11,$12,$13,'Zero-Admin Command Bar (Ctrl+K)')
+         cac_estimated_usd, breakeven_months, ltv_24m_usd, gross_margin_pct, next_action, source_channel, owner_name, responsible_user_id)
+       VALUES ($1,$2,$3,$4,$5,'DEMO_TECNICA',65,$6,$7,$8,24,$9,950,$10,$11,$12,$13,'Zero-Admin Command Bar (Ctrl+K)',$14,$15)
        RETURNING *`,
       [
         dealTitle,
@@ -1214,7 +1460,9 @@ app.post("/api/zero-admin", async (req, res) => {
         econ.breakevenMonths,
         econ.ltv24mRent,
         econ.grossMarginRentPct,
-        `Presentar propuesta ${modality} y demo interactiva FinActionable`,
+        `Presentar propuesta ${modality} a ${contactName} (${companyName} · ${country})`,
+        ownerName || "Dirección Comercial PF",
+        Number(ownerUserId) || 1,
       ]
     );
 
@@ -1224,7 +1472,7 @@ app.post("/api/zero-admin", async (req, res) => {
       `INSERT INTO activity_logs (event_type, summary, raw_input, structured_payload)
        VALUES ('ZERO_ADMIN_INGEST', $1, $2, $3)`,
       [
-        `Zero-Admin IA creó Cuenta "${companyName}" y Deal "${dealTitle}" (${modality}: $${mrrUsd}/mes | Buyout $${buyoutUsd})`,
+        `Zero-Admin IA creó Cuenta "${companyName}" (${contactName} · ${country}) y Deal "${dealTitle}"`,
         rawText,
         JSON.stringify({ account: newAccount, deal: createdDeal, economics: econ }),
       ]
@@ -1235,6 +1483,8 @@ app.post("/api/zero-admin", async (req, res) => {
       extracted: {
         companyName,
         contactName,
+        country,
+        contactEmail,
         productName: matchedProduct.name,
         brand: matchedProduct.brand,
         modality,
