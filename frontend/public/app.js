@@ -2423,7 +2423,7 @@ window.openZeroAdminAndDictate = function () {
   }, 180);
 };
 
-window.toggleZeroAdminVoiceDictation = function () {
+window.toggleZeroAdminVoiceDictation = async function () {
   const btn = document.getElementById("btn-zero-admin-voice");
   const statusBox = document.getElementById("zero-admin-voice-status");
   const textarea = document.getElementById("zero-admin-textarea");
@@ -2439,9 +2439,32 @@ window.toggleZeroAdminVoiceDictation = function () {
     return;
   }
 
+  // 1) Request explicit browser microphone permission first so the popup appears at the address bar
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch (permErr) {
+      if (statusBox) {
+        statusBox.style.display = "block";
+        statusBox.innerHTML =
+          "⚠️ <strong>Micrófono bloqueado en el navegador:</strong> Haz clic en el ícono de ajustes <strong>(🎚️ o 🔒) a la izquierda de <code>localhost:3400</code></strong> en la barra de direcciones arriba → activa <strong>Micrófono: Permitir</strong>, o presiona <strong><code>Tecla Windows + H</code></strong> para dictar.";
+      }
+      showToast("⚠️ Habilita el permiso de Micrófono en el ícono a la izquierda de localhost:3400.");
+      textarea.focus();
+      return;
+    }
+  }
+
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    showToast("⚠️ Tu navegador no expone Web Speech API; usa Chrome, Edge o Safari en PC/Celular.");
+    textarea.focus();
+    if (statusBox) {
+      statusBox.style.display = "block";
+      statusBox.innerHTML =
+        "🎙️ Cursor listo en la caja de texto: presiona <strong><code>Tecla Windows + H</code></strong> en tu PC (o el micrófono del teclado en tu Celular) para dictar por voz.";
+    }
+    showToast("🎙️ Presiona Windows + H para dictar por voz en este navegador.");
     return;
   }
 
@@ -2482,11 +2505,8 @@ window.toggleZeroAdminVoiceDictation = function () {
     recognition.onend = () => {
       activeZeroAdminRecognition = null;
       if (btn) btn.textContent = "🎙️ Dictar por Micrófono (PC / Celular)";
-      if (statusBox) {
-        statusBox.textContent = "✅ Dictado finalizado. Revisa el texto o haz clic en '✨ Procesar con IA y Guardar en PostgreSQL'.";
-        setTimeout(() => {
-          if (!activeZeroAdminRecognition && statusBox) statusBox.style.display = "none";
-        }, 4000);
+      if (statusBox && statusBox.textContent.startsWith("🔴")) {
+        statusBox.style.display = "none";
       }
       if (textarea.value.trim()) {
         showToast("✅ Nota de voz transcrita. Haz clic en '✨ Procesar con IA' para crear la oportunidad.");
@@ -2496,16 +2516,28 @@ window.toggleZeroAdminVoiceDictation = function () {
     recognition.onerror = (err) => {
       activeZeroAdminRecognition = null;
       if (btn) btn.textContent = "🎙️ Dictar por Micrófono (PC / Celular)";
-      if (statusBox) {
-        statusBox.style.display = "block";
-        statusBox.textContent = `⚠️ Permiso de micrófono requerido (${err.error || "verifica el ícono de candado/micrófono en la barra del navegador"}).`;
+      textarea.focus();
+      if (err.error === "network") {
+        // Brave Browser blocks Google's cloud speech recognition API even when microphone permission is granted
+        if (statusBox) {
+          statusBox.style.display = "block";
+          statusBox.innerHTML =
+            "🦁 <strong>Estás en el navegador Brave</strong> (Brave bloquea por privacidad el servidor de voz de Google aunque el micrófono esté permitido).<br/>👉 <strong>Solución inmediata en Brave:</strong> Ya puse el cursor en la caja de abajo; presiona <strong><code>Tecla Windows + H</code></strong> en tu teclado (o abre <code>http://localhost:3400</code> en <strong>Chrome / Edge</strong> para usar el botón directo).";
+        }
+        showToast("🦁 En Brave presiona [Windows + H] para dictar con voz nativa, o usa Chrome/Edge.");
+      } else {
+        if (statusBox) {
+          statusBox.style.display = "block";
+          statusBox.innerHTML = `⚠️ <strong>Cómo habilitar el micrófono (${err.error}):</strong> Haz clic en el ícono <strong>🎚️ (Controles del sitio)</strong> a la izquierda de <code>localhost:3400</code> en la barra de direcciones arriba → <strong>Micrófono: Permitir</strong>, o presiona <strong><code>Tecla Windows + H</code></strong>.`;
+        }
+        showToast("⚠️ Haz clic en el ícono a la izquierda de localhost:3400 → Micrófono: Permitir.");
       }
-      showToast("⚠️ Permite el acceso al micrófono en tu navegador para dictar por voz.");
     };
 
     recognition.start();
   } catch (e) {
     activeZeroAdminRecognition = null;
+    textarea.focus();
     showToast("⚠️ No se pudo iniciar el micrófono del navegador.");
   }
 };
