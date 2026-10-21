@@ -313,6 +313,7 @@ async function loadDashboard() {
     applyEnvironmentPreferences();
     renderAuthUserUI();
     populateKanbanOwnerFilter();
+    populateNewDealDropdowns();
     renderDashboardView();
     renderSmartGridView();
     renderKanbanView();
@@ -483,8 +484,9 @@ function renderSmartGridView() {
           <div style="font-size:11.5px; color:var(--text-muted);">${a.country} · ${a.employee_range} emp.</div>
         </td>
         <td>
-          <div style="font-weight:600;">${a.contact_name}</div>
-          <div style="font-size:11.5px; color:var(--text-secondary);">${a.contact_role}</div>
+          <div style="font-weight:600;">👤 ${a.contact_name || "Sin contacto"}</div>
+          <div style="font-size:11.5px; color:var(--text-secondary);">${a.contact_role || "Ejecutivo"}</div>
+          ${a.contact_email ? `<div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-cyan);">${a.contact_email}</div>` : ""}
         </td>
         <td>
           ${
@@ -510,15 +512,137 @@ function renderSmartGridView() {
           ${a.ai_personalized_icebreaker ? `"${a.ai_personalized_icebreaker}"` : "—"}
         </td>
         <td>
-          <button class="btn btn-cyan" style="padding:6px 10px; font-size:11.5px;" onclick="enrichSingleAccount(${a.id})">
-            ⚡ Magic AI
-          </button>
+          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <button class="btn btn-cyan" style="padding:6px 10px; font-size:11px;" onclick="enrichSingleAccount(${a.id})" title="Enriquecer con IA">
+              ⚡ Magic AI
+            </button>
+            <button class="btn btn-outline" style="padding:5px 8px; font-size:11px;" onclick="openAccountModal(${a.id})" title="Editar Cliente y Contacto B2B">
+              ✏️ Editar
+            </button>
+            <button class="btn btn-outline" style="padding:5px 8px; font-size:11px; border-color:rgba(244,63,94,0.35); color:#fda4af;" onclick="deleteAccountCrud(${a.id})" title="Eliminar Cliente">
+              🗑️
+            </button>
+          </div>
         </td>
       </tr>
     `
     )
     .join("");
 }
+
+// CRUD Modal para Clientes y Contactos B2B (accounts)
+const accountModal = document.getElementById("account-modal");
+
+window.openAccountModal = function (accountId = null) {
+  if (!accountModal) return;
+  const ownerSelect = document.getElementById("acc-owner-user");
+  if (ownerSelect) {
+    const usersList = state.users && state.users.length ? state.users : [state.currentUser];
+    ownerSelect.innerHTML = usersList
+      .map((u) => `<option value="${u.id}">👤 ${u.name} (${u.role} · ${u.email})</option>`)
+      .join("");
+  }
+
+  if (accountId) {
+    const acc = state.accounts.find((a) => Number(a.id) === Number(accountId));
+    if (!acc) return;
+    document.getElementById("account-modal-title").textContent = `Editar Cliente & Contacto: ${acc.company_name}`;
+    document.getElementById("acc-edit-id").value = acc.id;
+    document.getElementById("acc-company-name").value = acc.company_name || "";
+    document.getElementById("acc-domain").value = acc.domain || "";
+    document.getElementById("acc-industry").value = acc.industry || "E-Commerce & Retail";
+    document.getElementById("acc-country").value = acc.country || "Colombia";
+    document.getElementById("acc-employees").value = acc.employee_range || "50-200";
+    document.getElementById("acc-contact-name").value = acc.contact_name || "";
+    document.getElementById("acc-contact-role").value = acc.contact_role || "";
+    document.getElementById("acc-contact-email").value = acc.contact_email || "";
+    if (ownerSelect && acc.owner_user_id) {
+      ownerSelect.value = String(acc.owner_user_id);
+    }
+  } else {
+    document.getElementById("account-modal-title").textContent = "Nuevo Cliente y Contacto B2B";
+    document.getElementById("acc-edit-id").value = "";
+    document.getElementById("acc-company-name").value = "";
+    document.getElementById("acc-domain").value = "";
+    document.getElementById("acc-industry").value = "E-Commerce & Retail";
+    document.getElementById("acc-country").value = "Colombia";
+    document.getElementById("acc-employees").value = "50-200";
+    document.getElementById("acc-contact-name").value = "";
+    document.getElementById("acc-contact-role").value = "";
+    document.getElementById("acc-contact-email").value = "";
+    if (ownerSelect && state.currentUser?.id) {
+      ownerSelect.value = String(state.currentUser.id);
+    }
+  }
+  accountModal.classList.add("open");
+};
+
+window.closeAccountModal = function () {
+  if (accountModal) accountModal.classList.remove("open");
+};
+
+window.saveAccountCrud = async function () {
+  const editId = document.getElementById("acc-edit-id")?.value;
+  const company_name = (document.getElementById("acc-company-name")?.value || "").trim();
+  const domain = (document.getElementById("acc-domain")?.value || "").trim();
+  const industry = (document.getElementById("acc-industry")?.value || "Servicios B2B").trim();
+  const country = (document.getElementById("acc-country")?.value || "Colombia").trim();
+  const employee_range = document.getElementById("acc-employees")?.value || "50-200";
+  const contact_name = (document.getElementById("acc-contact-name")?.value || "").trim();
+  const contact_role = (document.getElementById("acc-contact-role")?.value || "").trim();
+  const contact_email = (document.getElementById("acc-contact-email")?.value || "").trim();
+  const owner_user_id = Number(document.getElementById("acc-owner-user")?.value || state.currentUser?.id || 1);
+
+  if (!company_name || !contact_name) {
+    showToast("⚠️ Ingresa el nombre de la Empresa y el Nombre del Contacto Principal.");
+    return;
+  }
+
+  const url = editId ? `/api/accounts/${editId}` : "/api/accounts";
+  const method = editId ? "PUT" : "POST";
+
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      company_name,
+      domain,
+      industry,
+      country,
+      employee_range,
+      contact_name,
+      contact_role,
+      contact_email,
+      owner_user_id,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(`⚠️ ${data.error || "No se pudo guardar el cliente"}`);
+    return;
+  }
+  closeAccountModal();
+  await loadDashboard();
+  showToast(
+    editId
+      ? `✅ Cliente "${company_name}" (${contact_name}) actualizado.`
+      : `✅ Nuevo Cliente "${company_name}" y contacto ${contact_name} creados.`
+  );
+};
+
+window.deleteAccountCrud = async function (accountId) {
+  const acc = state.accounts.find((a) => Number(a.id) === Number(accountId));
+  if (!acc) return;
+  if (!confirm(`¿Eliminar el cliente "${acc.company_name}" (${acc.contact_name})?`)) return;
+  const res = await fetch(`/api/accounts/${accountId}`, { method: "DELETE" });
+  const data = await res.json();
+  if (!res.ok) {
+    showToast(`⚠️ ${data.error || "No se pudo eliminar el cliente"}`);
+    return;
+  }
+  await loadDashboard();
+  showToast(`🗑️ Cliente "${acc.company_name}" eliminado.`);
+};
 
 window.enrichSingleAccount = async function (accountId) {
   showToast(`⚡ Ejecutando Agente Magic AI (Claygent + FinActionable) para cuenta #${accountId}...`);
@@ -1228,6 +1352,7 @@ window.confirmStageTransition = async function () {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       stage: toStage,
+      responsibleUserId: state.currentUser.id,
       responsibleName: state.currentUser.name,
       responsibleEmail: state.currentUser.email,
       responsibleRole: state.currentUser.role,
@@ -1249,22 +1374,33 @@ window.confirmStageTransition = async function () {
   showToast(`✅ Etapa actualizada a ${toStage} y firmada por ${state.currentUser.name}.`);
 };
 
-// Point 3.4: Quick Deal Creation Modal per Kanban Column
+// Point 3.4: Quick Deal Creation Modal per Kanban Column (with rich Clients & Contacts B2B dropdown + inline creation)
 const newDealModal = document.getElementById("new-deal-modal");
 
-window.openNewDealModal = function (defaultStage = "DISCOVERY") {
-  if (!newDealModal) return;
-  const stageSel = document.getElementById("nd-stage");
+function populateNewDealDropdowns() {
   const accSel = document.getElementById("nd-account") || document.getElementById("nd-account-id");
   const prodSel = document.getElementById("nd-product") || document.getElementById("nd-product-id");
 
-  if (stageSel) stageSel.value = defaultStage || "DISCOVERY";
-  if (accSel) {
-    accSel.innerHTML = state.accounts
-      .map((a) => `<option value="${a.id}">${a.company_name} (${a.industry || "B2B"})</option>`)
-      .join("");
+  if (accSel && Array.isArray(state.accounts)) {
+    const currentVal = accSel.value;
+    accSel.innerHTML =
+      state.accounts
+        .map(
+          (a) =>
+            `<option value="${a.id}">🏢 ${a.company_name} — 👤 ${a.contact_name || "Contacto"} (${
+              a.contact_role || a.industry || "B2B"
+            })</option>`
+        )
+        .join("") +
+      `<option value="NEW">➕ [CREAR NUEVO CLIENTE Y CONTACTO B2B...]</option>`;
+    if (currentVal && Array.from(accSel.options).some((o) => o.value === currentVal)) {
+      accSel.value = currentVal;
+    }
+    window.syncNewDealAccountPreview();
   }
-  if (prodSel) {
+
+  if (prodSel && Array.isArray(state.products)) {
+    const currentProd = prodSel.value;
     prodSel.innerHTML = state.products
       .map(
         (p) =>
@@ -1275,10 +1411,49 @@ window.openNewDealModal = function (defaultStage = "DISCOVERY") {
           }" data-brand="${p.brand}">${p.name} (${p.brand})</option>`
       )
       .join("");
+    if (currentProd && Array.from(prodSel.options).some((o) => o.value === currentProd)) {
+      prodSel.value = currentProd;
+    }
   }
+}
+
+window.syncNewDealAccountPreview = function () {
+  const accSel = document.getElementById("nd-account") || document.getElementById("nd-account-id");
+  const previewBox = document.getElementById("nd-contact-preview");
+  const newClientFields = document.getElementById("nd-new-client-fields");
+  if (!accSel) return;
+
+  if (accSel.value === "NEW") {
+    if (previewBox) previewBox.style.display = "none";
+    if (newClientFields) newClientFields.style.display = "block";
+    return;
+  }
+
+  if (newClientFields) newClientFields.style.display = "none";
+  const acc = state.accounts.find((a) => Number(a.id) === Number(accSel.value));
+  if (previewBox && acc) {
+    previewBox.style.display = "block";
+    previewBox.innerHTML = `🏢 <strong>${acc.company_name}</strong> (${acc.industry || "B2B"} · ${
+      acc.country || "LATAM"
+    }) &nbsp;|&nbsp; 👤 Contacto: <strong>${acc.contact_name || "Ejecutivo"}</strong> (${
+      acc.contact_role || "Decisor"
+    }) · <span style="color:var(--accent-cyan); font-family:var(--font-mono);">${
+      acc.contact_email || acc.domain || ""
+    }</span>`;
+  }
+};
+
+window.openNewDealModal = function (defaultStage = "DISCOVERY") {
+  if (!newDealModal) return;
+  const stageSel = document.getElementById("nd-stage");
+  if (stageSel) stageSel.value = defaultStage || "DISCOVERY";
+
+  populateNewDealDropdowns();
+
   const titleEl = document.getElementById("nd-title");
   if (titleEl) titleEl.value = "";
   syncNewDealProductDefaults();
+  window.syncNewDealAccountPreview();
   newDealModal.classList.add("open");
 };
 
@@ -1305,7 +1480,7 @@ window.saveNewDealKanban = async function () {
   const stage = document.getElementById("nd-stage")?.value || "DISCOVERY";
   const accSel = document.getElementById("nd-account") || document.getElementById("nd-account-id");
   const prodSel = document.getElementById("nd-product") || document.getElementById("nd-product-id");
-  const account_id = Number(accSel?.value || 1);
+  const account_id = accSel?.value === "NEW" ? "NEW" : Number(accSel?.value || 1);
   const product_id = Number(prodSel?.value || 1);
   const modality = document.getElementById("nd-modality")?.value || "RENTA_MRR";
   const mrr_usd = Number(document.getElementById("nd-mrr")?.value || 950);
@@ -1313,8 +1488,17 @@ window.saveNewDealKanban = async function () {
   const setup_fee_usd = Number(document.getElementById("nd-setup")?.value || 2200);
   const infra_cost_monthly_usd = Number(document.getElementById("nd-infra")?.value || 75);
 
+  const new_company_name = (document.getElementById("nd-new-company")?.value || "").trim();
+  const new_contact_name = (document.getElementById("nd-new-contact")?.value || "").trim();
+  const new_contact_role = (document.getElementById("nd-new-role")?.value || "").trim();
+  const new_contact_email = (document.getElementById("nd-new-email")?.value || "").trim();
+
   if (!title) {
     showToast("⚠️ Ingresa el título de la oportunidad comercial.");
+    return;
+  }
+  if (account_id === "NEW" && !new_company_name) {
+    showToast("⚠️ Ingresa el nombre de la nueva Empresa Cliente.");
     return;
   }
 
@@ -1325,6 +1509,10 @@ window.saveNewDealKanban = async function () {
       title,
       stage,
       account_id,
+      new_company_name,
+      new_contact_name,
+      new_contact_role,
+      new_contact_email,
       product_id,
       modality,
       mrr_usd,
@@ -1332,6 +1520,7 @@ window.saveNewDealKanban = async function () {
       buyout_base_usd,
       setup_fee_usd,
       infra_cost_monthly_usd,
+      responsibleUserId: state.currentUser.id,
       responsibleName: state.currentUser.name,
       responsibleEmail: state.currentUser.email,
       responsibleRole: state.currentUser.role,
@@ -1844,9 +2033,17 @@ window.openDealInStudio = function (dealId) {
 function populateSimulatorSelect() {
   const sel = document.getElementById("sim-deal-select");
   if (!sel) return;
+  const currentVal = sel.value;
   sel.innerHTML = state.deals
-    .map((d) => `<option value="${d.id}">#${d.id} — ${d.title} (${d.company_name || "B2B"})</option>`)
+    .map((d) => {
+      const acc = state.accounts.find((a) => Number(a.id) === Number(d.account_id));
+      const contactTag = acc?.contact_name ? ` · 👤 ${acc.contact_name}` : "";
+      return `<option value="${d.id}">#${d.id} — 🏢 ${d.company_name || "B2B"}${contactTag} · ${d.title}</option>`;
+    })
     .join("");
+  if (currentVal && Array.from(sel.options).some((o) => o.value === currentVal)) {
+    sel.value = currentVal;
+  }
 }
 
 async function runStudioSimulation(saveToDb = false) {

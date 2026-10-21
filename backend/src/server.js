@@ -166,6 +166,10 @@ async function ensureAuthAndKanbanSchema() {
       ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_changed_role VARCHAR(100) DEFAULT 'CEO & Founder';
       ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_stage_change_at TIMESTAMP DEFAULT NOW();
       ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_justification TEXT DEFAULT 'Oportunidad inicial calificada por comité comercial.';
+
+      ALTER TABLE accounts ADD COLUMN IF NOT EXISTS owner_user_id INT REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS responsible_user_id INT REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE deal_stage_history ADD COLUMN IF NOT EXISTS responsible_user_id INT REFERENCES users(id) ON DELETE SET NULL;
     `);
 
     const seedUsers = [
@@ -261,8 +265,8 @@ async function ensureAuthAndKanbanSchema() {
       for (const d of dealsRes.rows) {
         await pool.query(
           `INSERT INTO deal_stage_history
-            (deal_id, from_stage, to_stage, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
-           VALUES ($1, 'DISCOVERY', $2, 'Alfonso Gordillo', 'alfonso@projectsfactory.io', 'CEO & Founder', NOW() - INTERVAL '2 days', $3, $4, 94)`,
+            (deal_id, from_stage, to_stage, responsible_user_id, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
+           VALUES ($1, 'DISCOVERY', $2, 1, 'Alfonso Gordillo', 'alfonso@projectsfactory.io', 'CEO & Founder', NOW() - INTERVAL '2 days', $3, $4, 94)`,
           [
             d.id,
             d.stage,
@@ -272,6 +276,12 @@ async function ensureAuthAndKanbanSchema() {
         );
       }
     }
+
+    await pool.query(`
+      UPDATE accounts SET owner_user_id = 1 WHERE owner_user_id IS NULL;
+      UPDATE deals SET responsible_user_id = 1 WHERE responsible_user_id IS NULL;
+      UPDATE deal_stage_history SET responsible_user_id = 1 WHERE responsible_user_id IS NULL;
+    `);
     console.log("[NexusPF-CRM] Enterprise RBAC Auth & Kanban Audit Schema verified.");
   } catch (err) {
     console.error("[NexusPF-CRM] Schema migration notice:", err.message);
@@ -841,8 +851,150 @@ app.delete("/api/products/:id", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Magic AI Columns Engine (Estilo Claygent + Folk + FinActionable)
+// 4. Clientes & Contactos B2B CRUD + Magic AI Columns Engine
 // ---------------------------------------------------------------------------
+app.get("/api/accounts", async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT a.*, u.name AS owner_name, u.email AS owner_email
+      FROM accounts a
+      LEFT JOIN users u ON a.owner_user_id = u.id
+      ORDER BY a.id ASC
+    `);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/accounts", async (req, res) => {
+  try {
+    const {
+      company_name,
+      domain,
+      industry = "Tecnología & Operaciones B2B",
+      country = "Colombia / LATAM",
+      employee_range = "50-200",
+      contact_name,
+      contact_role = "Director / Decisor Clave",
+      contact_email,
+      owner_user_id = 1,
+    } = req.body;
+
+    if (!company_name || !String(company_name).trim() || !contact_name || !String(contact_name).trim()) {
+      return res.status(400).json({ error: "El nombre de la Empresa Cliente y del Contacto Principal son obligatorios." });
+    }
+
+    const cleanDomain =
+      domain && String(domain).trim()
+        ? String(domain).trim().toLowerCase()
+        : String(company_name)
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "")
+            .slice(0, 18) + ".co";
+
+    const cleanEmail =
+      contact_email && String(contact_email).trim()
+        ? String(contact_email).trim().toLowerCase()
+        : `${String(contact_name).trim().split(/\s+/)[0].toLowerCase()}@${cleanDomain}`;
+
+    const { rows } = await pool.query(
+      `INSERT INTO accounts
+        (company_name, domain, industry, country, employee_range, contact_name, contact_role, contact_email, owner_user_id, ai_fit_score, ai_recommended_product, ai_recommended_modality, ai_enriched_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,93,'FinActionable AI-CFO & Treasury','RENTA_MRR ($1,150/mes + $2,400 Setup)',NOW())
+       RETURNING *`,
+      [
+        String(company_name).trim(),
+        cleanDomain,
+        industry,
+        country,
+        employee_range,
+        String(contact_name).trim(),
+        contact_role,
+        cleanEmail,
+        Number(owner_user_id) || 1,
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('ACCOUNT_CREATED', $1, $2)`,
+      [
+        `Nuevo Cliente & Contacto registrado: "${rows[0].company_name}" — Contacto: ${rows[0].contact_name} (${rows[0].contact_email})`,
+        JSON.stringify(rows[0]),
+      ]
+    );
+
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.put("/api/accounts/:id", async (req, res) => {
+  try {
+    const accountId = Number(req.params.id);
+    const {
+      company_name,
+      domain,
+      industry,
+      country,
+      employee_range,
+      contact_name,
+      contact_role,
+      contact_email,
+      owner_user_id,
+    } = req.body;
+
+    const existing = await pool.query("SELECT * FROM accounts WHERE id = $1", [accountId]);
+    if (existing.rows.length === 0) return res.status(404).json({ error: "Cliente no encontrado." });
+    const cur = existing.rows[0];
+
+    const { rows } = await pool.query(
+      `UPDATE accounts
+       SET company_name = $1,
+           domain = $2,
+           industry = $3,
+           country = $4,
+           employee_range = $5,
+           contact_name = $6,
+           contact_role = $7,
+           contact_email = $8,
+           owner_user_id = $9
+       WHERE id = $10
+       RETURNING *`,
+      [
+        company_name !== undefined ? String(company_name).trim() : cur.company_name,
+        domain !== undefined ? String(domain).trim() : cur.domain,
+        industry !== undefined ? industry : cur.industry,
+        country !== undefined ? country : cur.country,
+        employee_range !== undefined ? employee_range : cur.employee_range,
+        contact_name !== undefined ? String(contact_name).trim() : cur.contact_name,
+        contact_role !== undefined ? contact_role : cur.contact_role,
+        contact_email !== undefined ? String(contact_email).trim() : cur.contact_email,
+        owner_user_id !== undefined ? Number(owner_user_id) || 1 : cur.owner_user_id || 1,
+        accountId,
+      ]
+    );
+
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete("/api/accounts/:id", async (req, res) => {
+  try {
+    const accountId = Number(req.params.id);
+    await pool.query("DELETE FROM deals WHERE account_id = $1", [accountId]);
+    const { rows } = await pool.query("DELETE FROM accounts WHERE id = $1 RETURNING *", [accountId]);
+    if (rows.length === 0) return res.status(404).json({ error: "Cliente no encontrado." });
+    res.json({ ok: true, deleted: rows[0] });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.post("/api/magic-enrich/:accountId", async (req, res) => {
   try {
     const accountId = Number(req.params.accountId);
@@ -1247,18 +1399,45 @@ app.post("/api/deals", async (req, res) => {
     const {
       title,
       account_id,
+      new_company_name,
+      new_contact_name,
+      new_contact_role = "Director / Decisor",
+      new_contact_email,
+      new_industry = "Tecnología & Servicios B2B",
       product_id,
       stage = "DISCOVERY",
       modality = "RENTA_MRR",
       mrr_usd,
       setup_fee_usd,
       buyout_dynamic_usd,
+      responsibleUserId = 1,
       responsibleName = "Alfonso Gordillo",
+      responsibleEmail = "alfonso@projectsfactory.io",
       responsibleRole = "CEO & Founder",
     } = req.body;
 
     if (!title || !String(title).trim()) {
       return res.status(400).json({ error: "El título de la oportunidad es obligatorio." });
+    }
+
+    let finalAccountId = Number(account_id) || 1;
+    if (String(account_id) === "NEW" || (new_company_name && String(new_company_name).trim())) {
+      const compName = String(new_company_name || "Nueva Empresa B2B").trim();
+      const contName = String(new_contact_name || "Decisor Ejecutivo").trim();
+      const dom = compName.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 18) + ".co";
+      const contEmail =
+        new_contact_email && String(new_contact_email).trim()
+          ? String(new_contact_email).trim()
+          : `${contName.split(/\s+/)[0].toLowerCase()}@${dom}`;
+
+      const accIns = await pool.query(
+        `INSERT INTO accounts
+          (company_name, domain, industry, country, employee_range, contact_name, contact_role, contact_email, owner_user_id, ai_fit_score, ai_recommended_product, ai_recommended_modality, ai_enriched_at)
+         VALUES ($1,$2,$3,'Colombia / LATAM','50-200',$4,$5,$6,$7,94,'FinActionable AI-CFO & Treasury','RENTA_MRR',NOW())
+         RETURNING id`,
+        [compName, dom, new_industry, contName, new_contact_role, contEmail, Number(responsibleUserId) || 1]
+      );
+      finalAccountId = accIns.rows[0].id;
     }
 
     const prodRes = await pool.query("SELECT * FROM digital_products WHERE id = $1", [Number(product_id) || 1]);
@@ -1295,16 +1474,17 @@ app.post("/api/deals", async (req, res) => {
 
     const { rows } = await pool.query(
       `INSERT INTO deals
-        (title, account_id, product_id, brand, modality, stage, probability,
+        (title, account_id, product_id, responsible_user_id, brand, modality, stage, probability,
          buyout_dynamic_usd, setup_fee_usd, mrr_usd, contract_months, infra_cost_monthly_usd,
          cac_estimated_usd, breakeven_months, ltv_24m_usd, gross_margin_pct,
          next_action, source_channel, last_changed_by, last_changed_role, last_stage_change_at, last_justification)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,24,$11,900,$12,$13,$14,$15,'Kanban Quick Create',$16,$17,NOW(),$18)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,24,$12,900,$13,$14,$15,$16,'Kanban Quick Create',$17,$18,NOW(),$19)
        RETURNING *`,
       [
         String(title).trim(),
-        Number(account_id) || 1,
+        finalAccountId,
         prod.id,
+        Number(responsibleUserId) || 1,
         prod.brand,
         modality,
         stage,
@@ -1326,13 +1506,15 @@ app.post("/api/deals", async (req, res) => {
     const created = rows[0];
     await pool.query(
       `INSERT INTO deal_stage_history
-        (deal_id, from_stage, to_stage, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
-       VALUES ($1, $2, $3, $4, 'ejecutivo@projectsfactory.io', $5, NOW(), $6, $7, 95)`,
+        (deal_id, from_stage, to_stage, responsible_user_id, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8, $9, 95)`,
       [
         created.id,
         stage,
         stage,
+        Number(responsibleUserId) || 1,
         responsibleName,
+        responsibleEmail,
         responsibleRole,
         `Creación inicial de oportunidad en columna ${stage} (${modality}: $${finalMrr}/m | Buyout $${finalBuyout}).`,
         created.next_action,
