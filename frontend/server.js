@@ -7,7 +7,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 3400);
 const API_UPSTREAM = process.env.API_INTERNAL_URL || "http://localhost:4400";
 
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "25mb" }));
 
 // Seamless reverse proxy for /api/* to the Backend container
 app.use("/api", async (req, res) => {

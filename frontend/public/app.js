@@ -516,6 +516,9 @@ function renderSmartGridView() {
             <button class="btn btn-cyan" style="padding:6px 10px; font-size:11px;" onclick="enrichSingleAccount(${a.id})" title="Enriquecer con IA">
               ⚡ Magic AI
             </button>
+            <button class="btn btn-outline" style="padding:5px 8px; font-size:11px; border-color:rgba(56,189,248,0.4); color:var(--accent-cyan);" onclick="openAttachmentsVaultModal({ accountId: ${a.id} })" title="Subir o ver PDFs, Notas de Voz y Archivos en PostgreSQL">
+              📎 Archivos
+            </button>
             <button class="btn btn-outline" style="padding:5px 8px; font-size:11px;" onclick="openAccountModal(${a.id})" title="Editar Cliente y Contacto B2B">
               ✏️ Editar
             </button>
@@ -1003,6 +1006,7 @@ function renderKanbanView() {
               <div style="display:flex; gap:5px; justify-content:space-between; align-items:center; flex-wrap:wrap;">
                 <button class="btn" style="padding:4px 7px; font-size:10.5px;" onclick="openDealInStudio(${d.id})" title="Abrir en Simulador Financiero">📈 ${t("Simular", "Sim")}</button>
                 <button class="btn btn-gold" style="padding:4px 7px; font-size:10.5px;" onclick="flipDealModality(${d.id})" title="Alternar 1-Click entre Renta SaaS y Venta CapEx">⇄ Flip</button>
+                <button class="btn" style="padding:4px 7px; font-size:10.5px; border-color:rgba(56,189,248,0.4); color:var(--accent-cyan);" onclick="openAttachmentsVaultModal({ dealId: ${d.id}, accountId: ${d.account_id || "null"} })" title="Subir o ver PDFs y Archivos de Voz en PostgreSQL">📎</button>
                 <button class="btn btn-cyan" style="padding:4px 7px; font-size:10.5px;" onclick="openDealHistoryModal(${d.id})" title="Ver auditoría de cambios de etapa">
                   📜 (${histCount || 1})
                 </button>
@@ -2615,6 +2619,284 @@ document.getElementById("btn-submit-zero-admin").addEventListener("click", async
     resBox.innerHTML = `<span style="color:var(--accent-rose);">Error: ${data.error}</span>`;
   }
 });
+
+// ---------------------------------------------------------------------------
+// Bóveda Multimedia PostgreSQL (`crm_attachments`): PDFs, Archivos de Voz, Docs e Imágenes
+// ---------------------------------------------------------------------------
+let activeMediaRecorder = null;
+let recordedAudioChunks = [];
+
+window.openAttachmentsVaultModal = async function (opts = {}) {
+  const vaultModal = document.getElementById("attachments-vault-modal");
+  if (!vaultModal) return;
+
+  const accSel = document.getElementById("vault-account-select");
+  const dealSel = document.getElementById("vault-deal-select");
+
+  if (accSel) {
+    accSel.innerHTML =
+      `<option value="">— General / Sin cliente específico —</option>` +
+      (state.accounts || [])
+        .map((a) => `<option value="${a.id}">🏢 ${a.company_name} — 👤 ${a.contact_name || "Contacto"}</option>`)
+        .join("");
+    if (opts.accountId) accSel.value = String(opts.accountId);
+  }
+
+  if (dealSel) {
+    dealSel.innerHTML =
+      `<option value="">— General / Sin oportunidad específica —</option>` +
+      (state.deals || [])
+        .map((d) => `<option value="${d.id}">#${d.id} — ${d.title} (${d.company_name || "B2B"})</option>`)
+        .join("");
+    if (opts.dealId) dealSel.value = String(opts.dealId);
+  }
+
+  vaultModal.classList.add("open");
+  await window.loadVaultAttachments();
+};
+
+window.closeAttachmentsVaultModal = function () {
+  const vaultModal = document.getElementById("attachments-vault-modal");
+  if (vaultModal) vaultModal.classList.remove("open");
+};
+
+window.loadVaultAttachments = async function () {
+  const listEl = document.getElementById("vault-files-list");
+  const badgeEl = document.getElementById("vault-count-badge");
+  if (!listEl) return;
+
+  try {
+    const res = await fetch("/api/attachments");
+    const items = await res.json();
+    if (badgeEl) {
+      badgeEl.textContent = `${items.length} archivo${items.length === 1 ? "" : "s"} en Postgres`;
+    }
+
+    if (!items.length) {
+      listEl.innerHTML = `
+        <div style="padding:18px; border-radius:10px; background:var(--bg-elevated); border:1px dashed var(--border-hairline); text-align:center; color:var(--text-muted); font-size:12.5px;">
+          Aún no hay archivos en <code>crm_attachments</code>. Arrastra un <strong>PDF</strong>, un <strong>Archivo de Voz (.mp3/.wav/.ogg/.m4a)</strong> o pulsa <strong>🔴 Grabar Archivo de Voz</strong> arriba para guardarlo directamente en PostgreSQL.
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = items
+      .map((att) => {
+        const kb = Math.max(1, Math.round(Number(att.file_size_bytes || 0) / 1024));
+        const dateStr = att.created_at ? new Date(att.created_at).toLocaleString("es-CO") : "Reciente";
+        const isAudio = att.file_category === "AUDIO_VOZ" || String(att.mime_type).startsWith("audio/");
+        const isImage = att.file_category === "IMAGEN_CAPTURA" || String(att.mime_type).startsWith("image/");
+        const icon =
+          att.file_category === "DOCUMENTO_PDF"
+            ? "📄 PDF"
+            : isAudio
+            ? "🎵 VOZ/AUDIO"
+            : isImage
+            ? "🖼️ IMAGEN"
+            : "📎 DOC";
+
+        return `
+          <div style="padding:12px; border-radius:10px; background:var(--bg-elevated); border:1px solid var(--border-hairline); display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <div>
+                <span class="badge ${isAudio ? "badge-venta" : "badge-renta"}" style="margin-right:6px;">${icon}</span>
+                <strong style="font-size:13.5px; color:var(--text-primary);">${att.file_name}</strong>
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted); margin-left:6px;">(${kb} KB · ID #${att.id} en PostgreSQL)</span>
+              </div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <a href="${att.file_data_url}" download="${att.file_name}" class="btn btn-cyan" style="padding:4px 9px; font-size:11px; text-decoration:none;">
+                  ⬇️ Descargar de Postgres
+                </a>
+                <button class="btn" type="button" style="padding:4px 8px; font-size:11px; color:#fda4af;" onclick="deleteVaultAttachment(${att.id})">
+                  🗑️
+                </button>
+              </div>
+            </div>
+            <div style="font-size:11.5px; color:var(--text-secondary);">
+              🏢 Cliente: <strong>${att.company_name || "General"}</strong> ${
+          att.deal_title ? `· 💼 Deal: <strong>${att.deal_title}</strong>` : ""
+        } · 👤 Subido por: <strong>${att.uploaded_by_name || "Ejecutivo"}</strong> (${dateStr})
+            </div>
+            ${
+              att.ai_summary
+                ? `<div style="font-size:11.5px; color:var(--accent-cyan); font-family:var(--font-mono);">${att.ai_summary}</div>`
+                : ""
+            }
+            ${
+              isAudio
+                ? `<audio controls src="${att.file_data_url}" style="width:100%; height:34px; margin-top:4px;"></audio>`
+                : ""
+            }
+          </div>
+        `;
+      })
+      .join("");
+  } catch (err) {
+    listEl.innerHTML = `<div style="color:var(--accent-rose);">Error consultando crm_attachments: ${err.message}</div>`;
+  }
+};
+
+window.handleVaultFilesSelected = async function (fileList) {
+  if (!fileList || !fileList.length) return;
+  const account_id = document.getElementById("vault-account-select")?.value || null;
+  const deal_id = document.getElementById("vault-deal-select")?.value || null;
+
+  for (const file of Array.from(fileList)) {
+    showToast(`⏳ Subiendo "${file.name}" a la tabla crm_attachments de PostgreSQL...`);
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    let extracted_text = "";
+    if (file.type.startsWith("text/") || /\.(txt|csv|md|json)$/i.test(file.name)) {
+      extracted_text = await file.text().catch(() => "");
+    }
+
+    const res = await fetch("/api/attachments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        file_name: file.name,
+        mime_type: file.type || "application/octet-stream",
+        file_size_bytes: file.size,
+        file_data_url: dataUrl,
+        extracted_text,
+        account_id: account_id ? Number(account_id) : null,
+        deal_id: deal_id ? Number(deal_id) : null,
+        uploaded_by_user_id: state.currentUser?.id || 1,
+        uploaded_by_name: state.currentUser?.name || "Ejecutivo NexusPF",
+      }),
+    });
+
+    const saved = await res.json();
+    if (!res.ok) {
+      showToast(`⚠️ Error guardando ${file.name}: ${saved.error || "Verifica el tamaño"}`);
+    } else {
+      showToast(`✅ "${file.name}" guardado en PostgreSQL (crm_attachments #${saved.id}).`);
+    }
+  }
+
+  const inputEl = document.getElementById("vault-file-input");
+  if (inputEl) inputEl.value = "";
+  await window.loadVaultAttachments();
+  await loadDashboard();
+};
+
+// Drag & Drop support on #vault-dropzone
+const vaultDropzone = document.getElementById("vault-dropzone");
+if (vaultDropzone) {
+  vaultDropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    vaultDropzone.style.borderColor = "var(--accent-emerald)";
+  });
+  vaultDropzone.addEventListener("dragleave", () => {
+    vaultDropzone.style.borderColor = "var(--accent-cyan)";
+  });
+  vaultDropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    vaultDropzone.style.borderColor = "var(--accent-cyan)";
+    if (e.dataTransfer?.files?.length) {
+      window.handleVaultFilesSelected(e.dataTransfer.files);
+    }
+  });
+}
+
+// Live Microphone Audio Recorder -> Saves .webm Voice File directly into PostgreSQL (`crm_attachments`)
+window.toggleAudioFileRecorder = async function () {
+  const btn = document.getElementById("btn-record-audio-pg");
+  const statusEl = document.getElementById("audio-recorder-status");
+
+  if (activeMediaRecorder && activeMediaRecorder.state === "recording") {
+    activeMediaRecorder.stop();
+    return;
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast("⚠️ Tu navegador no soporta captura de audio.");
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recordedAudioChunks = [];
+    const recorder = new MediaRecorder(stream);
+    activeMediaRecorder = recorder;
+
+    recorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) recordedAudioChunks.push(e.data);
+    };
+
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      if (btn) btn.textContent = "🔴 Grabar Archivo de Voz (.webm)";
+      if (statusEl) statusEl.textContent = "⏳ Guardando nota de voz en PostgreSQL (`crm_attachments`)...";
+
+      const blob = new Blob(recordedAudioChunks, { type: "audio/webm" });
+      const fileName = `Nota_Voz_${(state.currentUser?.name || "Ejecutivo").replace(/\s+/g, "_")}_${new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/[:T]/g, "-")}.webm`;
+
+      const dataUrl = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+
+      const account_id = document.getElementById("vault-account-select")?.value || null;
+      const deal_id = document.getElementById("vault-deal-select")?.value || null;
+
+      const res = await fetch("/api/attachments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file_name: fileName,
+          mime_type: "audio/webm",
+          file_size_bytes: blob.size,
+          file_data_url: dataUrl,
+          account_id: account_id ? Number(account_id) : null,
+          deal_id: deal_id ? Number(deal_id) : null,
+          uploaded_by_user_id: state.currentUser?.id || 1,
+          uploaded_by_name: state.currentUser?.name || "Ejecutivo NexusPF",
+        }),
+      });
+      const saved = await res.json();
+      if (res.ok) {
+        if (statusEl) statusEl.textContent = `✅ Grabación guardada en PostgreSQL (#${saved.id}). Puedes escucharla abajo.`;
+        showToast(`🎙️ Archivo de voz "${fileName}" guardado en PostgreSQL.`);
+        await window.loadVaultAttachments();
+        await loadDashboard();
+      } else {
+        if (statusEl) statusEl.textContent = `⚠️ Error al guardar audio: ${saved.error}`;
+      }
+      activeMediaRecorder = null;
+    };
+
+    recorder.start();
+    if (btn) btn.textContent = "⏹️ Detener y Guardar en PostgreSQL";
+    if (statusEl) statusEl.textContent = "🔴 Grabando tu voz en vivo... Habla y pulsa Detener para guardar en Postgres.";
+    showToast("🎙️ Grabando archivo de voz... Pulsa Detener para guardarlo en PostgreSQL.");
+  } catch (err) {
+    if (statusEl) {
+      statusEl.innerHTML =
+        "⚠️ Habilita el micrófono en el ícono a la izquierda de <code>localhost:3400</code> → <strong>Micrófono: Permitir</strong>.";
+    }
+    showToast("⚠️ Permite el uso del micrófono en la barra del navegador.");
+  }
+};
+
+window.deleteVaultAttachment = async function (id) {
+  if (!confirm("¿Eliminar este archivo de la tabla crm_attachments de PostgreSQL?")) return;
+  const res = await fetch(`/api/attachments/${id}`, { method: "DELETE" });
+  if (res.ok) {
+    showToast("🗑️ Archivo eliminado de PostgreSQL.");
+    await window.loadVaultAttachments();
+  }
+};
 
 // Initialize on load and show Initial Authentication Screen if not yet authenticated in this session
 loadDashboard().then(() => {

@@ -7,7 +7,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 4400);
 
 app.use(cors());
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "25mb" }));
 
 const pool = new Pool({
   connectionString:
@@ -170,6 +170,21 @@ async function ensureAuthAndKanbanSchema() {
       ALTER TABLE accounts ADD COLUMN IF NOT EXISTS owner_user_id INT REFERENCES users(id) ON DELETE SET NULL;
       ALTER TABLE deals ADD COLUMN IF NOT EXISTS responsible_user_id INT REFERENCES users(id) ON DELETE SET NULL;
       ALTER TABLE deal_stage_history ADD COLUMN IF NOT EXISTS responsible_user_id INT REFERENCES users(id) ON DELETE SET NULL;
+
+      CREATE TABLE IF NOT EXISTS crm_attachments (
+        id SERIAL PRIMARY KEY,
+        file_name VARCHAR(255) NOT NULL,
+        mime_type VARCHAR(140) NOT NULL,
+        file_category VARCHAR(40) NOT NULL DEFAULT 'DOCUMENTO_PDF',
+        file_size_bytes INTEGER NOT NULL DEFAULT 0,
+        file_data_url TEXT NOT NULL,
+        ai_summary TEXT,
+        account_id INT REFERENCES accounts(id) ON DELETE CASCADE,
+        deal_id INT REFERENCES deals(id) ON DELETE SET NULL,
+        uploaded_by_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+        uploaded_by_name VARCHAR(120) DEFAULT 'Alfonso Gordillo',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
     `);
 
     const seedUsers = [
@@ -282,11 +297,141 @@ async function ensureAuthAndKanbanSchema() {
       UPDATE deals SET responsible_user_id = 1 WHERE responsible_user_id IS NULL;
       UPDATE deal_stage_history SET responsible_user_id = 1 WHERE responsible_user_id IS NULL;
     `);
-    console.log("[NexusPF-CRM] Enterprise RBAC Auth & Kanban Audit Schema verified.");
+    console.log("[NexusPF-CRM] Enterprise RBAC Auth, Kanban Audit & Attachments Schema verified.");
   } catch (err) {
     console.error("[NexusPF-CRM] Schema migration notice:", err.message);
   }
 }
+
+// ---------------------------------------------------------------------------
+// 0.5 PostgreSQL Attachments Vault CRUD (PDFs, Voice Audio Files, Docs, Images)
+// ---------------------------------------------------------------------------
+app.get("/api/attachments", async (req, res) => {
+  try {
+    const { account_id, deal_id } = req.query;
+    const params = [];
+    const clauses = [];
+    if (account_id) {
+      params.push(Number(account_id));
+      clauses.push(`att.account_id = $${params.length}`);
+    }
+    if (deal_id) {
+      params.push(Number(deal_id));
+      clauses.push(`att.deal_id = $${params.length}`);
+    }
+    const whereSql = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const { rows } = await pool.query(
+      `SELECT att.*,
+              a.company_name,
+              a.contact_name,
+              d.title AS deal_title
+       FROM crm_attachments att
+       LEFT JOIN accounts a ON att.account_id = a.id
+       LEFT JOIN deals d ON att.deal_id = d.id
+       ${whereSql}
+       ORDER BY att.created_at DESC, att.id DESC`,
+      params
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/attachments", async (req, res) => {
+  try {
+    const {
+      file_name,
+      mime_type = "application/octet-stream",
+      file_size_bytes = 0,
+      file_data_url,
+      extracted_text = "",
+      account_id = null,
+      deal_id = null,
+      uploaded_by_user_id = 1,
+      uploaded_by_name = "Alfonso Gordillo",
+    } = req.body;
+
+    if (!file_name || !file_data_url) {
+      return res.status(400).json({ error: "Se requiere el nombre y el contenido del archivo (file_data_url)." });
+    }
+
+    const lowerMime = String(mime_type).toLowerCase();
+    const lowerName = String(file_name).toLowerCase();
+    let file_category = "OTRO_ARCHIVO";
+    if (lowerMime.includes("pdf") || lowerName.endsWith(".pdf")) {
+      file_category = "DOCUMENTO_PDF";
+    } else if (
+      lowerMime.startsWith("audio/") ||
+      /\.(mp3|wav|ogg|opus|m4a|webm|aac)$/i.test(lowerName)
+    ) {
+      file_category = "AUDIO_VOZ";
+    } else if (lowerMime.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif)$/i.test(lowerName)) {
+      file_category = "IMAGEN_CAPTURA";
+    } else if (/\.(doc|docx|xls|xlsx|ppt|pptx|txt|csv|md|json)$/i.test(lowerName)) {
+      file_category = "DOCUMENTO_B2B";
+    }
+
+    const kb = Math.max(1, Math.round(Number(file_size_bytes || 0) / 1024));
+    let ai_summary = "";
+    if (extracted_text && String(extracted_text).trim()) {
+      ai_summary = `IA analizó el contenido (${kb} KB): "${String(extracted_text).trim().slice(0, 240)}"`;
+    } else if (file_category === "DOCUMENTO_PDF") {
+      ai_summary = `Documento PDF corporativo (${kb} KB) almacenado en PostgreSQL (crm_attachments) y vinculado al expediente comercial para validación técnica/financiera.`;
+    } else if (file_category === "AUDIO_VOZ") {
+      ai_summary = `Nota / Archivo de Voz (${kb} KB · ${mime_type}) persistido en PostgreSQL. Disponible para reproducción inmediata y auditoría comercial.`;
+    } else if (file_category === "IMAGEN_CAPTURA") {
+      ai_summary = `Evidencia visual / captura (${kb} KB) almacenada en PostgreSQL y asociada a la cuenta/oportunidad.`;
+    } else {
+      ai_summary = `Archivo anexo (${file_name} · ${kb} KB) guardado en la bóveda PostgreSQL 16.`;
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO crm_attachments
+        (file_name, mime_type, file_category, file_size_bytes, file_data_url, ai_summary, account_id, deal_id, uploaded_by_user_id, uploaded_by_name)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING *`,
+      [
+        String(file_name).trim(),
+        mime_type,
+        file_category,
+        Number(file_size_bytes) || 0,
+        file_data_url,
+        ai_summary,
+        account_id ? Number(account_id) : null,
+        deal_id ? Number(deal_id) : null,
+        Number(uploaded_by_user_id) || 1,
+        uploaded_by_name || "Ejecutivo NexusPF",
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('ATTACHMENT_UPLOADED_PG', $1, $2)`,
+      [
+        `[${uploaded_by_name}] guardó archivo [${file_category}] "${file_name}" (${kb} KB) en PostgreSQL`,
+        JSON.stringify({ id: rows[0].id, file_name, file_category, account_id, deal_id }),
+      ]
+    );
+
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.delete("/api/attachments/:id", async (req, res) => {
+  try {
+    const attId = Number(req.params.id);
+    const del = await pool.query("DELETE FROM crm_attachments WHERE id = $1 RETURNING id, file_name", [attId]);
+    if (del.rows.length === 0) {
+      return res.status(404).json({ error: "Archivo no encontrado en PostgreSQL." });
+    }
+    res.json({ ok: true, deleted: del.rows[0] });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
 
 function buildInitials(nameStr) {
   const parts = String(nameStr || "Ejecutivo Nexus")
