@@ -2413,6 +2413,137 @@ window.fillZeroAdminSample = function (num) {
   document.getElementById("zero-admin-textarea").value = samples[num] || "";
 };
 
+// Live Voice Dictation for Zero-Admin Command Bar (PC & Mobile Microphone) & New Deal Modal
+let activeZeroAdminRecognition = null;
+
+window.openZeroAdminAndDictate = function () {
+  openZeroAdminModal();
+  setTimeout(() => {
+    window.toggleZeroAdminVoiceDictation();
+  }, 180);
+};
+
+window.toggleZeroAdminVoiceDictation = function () {
+  const btn = document.getElementById("btn-zero-admin-voice");
+  const statusBox = document.getElementById("zero-admin-voice-status");
+  const textarea = document.getElementById("zero-admin-textarea");
+  if (!textarea) return;
+
+  if (activeZeroAdminRecognition) {
+    try {
+      activeZeroAdminRecognition.stop();
+    } catch {}
+    activeZeroAdminRecognition = null;
+    if (btn) btn.textContent = "🎙️ Dictar por Micrófono (PC / Celular)";
+    if (statusBox) statusBox.style.display = "none";
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast("⚠️ Tu navegador no expone Web Speech API; usa Chrome, Edge o Safari en PC/Celular.");
+    return;
+  }
+
+  try {
+    const recognition = new SpeechRecognition();
+    activeZeroAdminRecognition = recognition;
+    recognition.lang = state.lang === "en" ? "en-US" : "es-CO";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    const baseText = textarea.value ? textarea.value.trim() + " " : "";
+
+    if (btn) btn.textContent = "⏹️ Detener Micrófono (Escuchando...)";
+    if (statusBox) {
+      statusBox.style.display = "block";
+      statusBox.textContent = "🔴 Micrófono activo: Habla ahora (ej. 'Hablé con Juan Carlos Blanco de la Empresa CableSmart...')";
+    }
+    showToast("🎙️ Micrófono activo: dicta los datos del cliente y la oportunidad...");
+
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+      let finalTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const piece = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += piece;
+        } else {
+          interimTranscript += piece;
+        }
+      }
+      textarea.value = (baseText + finalTranscript + interimTranscript).trim();
+      if (statusBox && interimTranscript) {
+        statusBox.textContent = `🎙️ Escuchando en vivo: "${interimTranscript}"`;
+      }
+    };
+
+    recognition.onend = () => {
+      activeZeroAdminRecognition = null;
+      if (btn) btn.textContent = "🎙️ Dictar por Micrófono (PC / Celular)";
+      if (statusBox) {
+        statusBox.textContent = "✅ Dictado finalizado. Revisa el texto o haz clic en '✨ Procesar con IA y Guardar en PostgreSQL'.";
+        setTimeout(() => {
+          if (!activeZeroAdminRecognition && statusBox) statusBox.style.display = "none";
+        }, 4000);
+      }
+      if (textarea.value.trim()) {
+        showToast("✅ Nota de voz transcrita. Haz clic en '✨ Procesar con IA' para crear la oportunidad.");
+      }
+    };
+
+    recognition.onerror = (err) => {
+      activeZeroAdminRecognition = null;
+      if (btn) btn.textContent = "🎙️ Dictar por Micrófono (PC / Celular)";
+      if (statusBox) {
+        statusBox.style.display = "block";
+        statusBox.textContent = `⚠️ Permiso de micrófono requerido (${err.error || "verifica el ícono de candado/micrófono en la barra del navegador"}).`;
+      }
+      showToast("⚠️ Permite el acceso al micrófono en tu navegador para dictar por voz.");
+    };
+
+    recognition.start();
+  } catch (e) {
+    activeZeroAdminRecognition = null;
+    showToast("⚠️ No se pudo iniciar el micrófono del navegador.");
+  }
+};
+
+window.dictateNewDealTitle = function () {
+  const btn = document.getElementById("btn-nd-voice");
+  const titleEl = document.getElementById("nd-title");
+  if (!titleEl) return;
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast("⚠️ Usa Chrome o Edge para dictar por voz.");
+    return;
+  }
+  try {
+    const recognition = new SpeechRecognition();
+    recognition.lang = state.lang === "en" ? "en-US" : "es-CO";
+    recognition.interimResults = false;
+    if (btn) btn.textContent = "🔴 Escuchando...";
+    showToast("🎙️ Dicta el título de la oportunidad comercial...");
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      titleEl.value = transcript.charAt(0).toUpperCase() + transcript.slice(1);
+      if (btn) btn.textContent = "🎙️ Dictar Título por Voz";
+      showToast("✅ Título dictado por voz.");
+    };
+    recognition.onerror = () => {
+      if (btn) btn.textContent = "🎙️ Dictar Título por Voz";
+    };
+    recognition.onend = () => {
+      if (btn) btn.textContent = "🎙️ Dictar Título por Voz";
+    };
+    recognition.start();
+  } catch {
+    if (btn) btn.textContent = "🎙️ Dictar Título por Voz";
+  }
+};
+
 document.getElementById("btn-submit-zero-admin").addEventListener("click", async () => {
   const rawText = document.getElementById("zero-admin-textarea").value;
   if (!rawText.trim()) return;

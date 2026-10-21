@@ -1094,6 +1094,13 @@ app.post("/api/magic-enrich-all", async (_req, res) => {
 // ---------------------------------------------------------------------------
 // 5. Zero-Admin Command Bar (Ctrl+K) — Natural Language Deal & Account Ingest
 // ---------------------------------------------------------------------------
+function titleCaseWord(w) {
+  if (!w) return "";
+  // Preserve existing internal caps like CableSmart, SaludTotal, NovaUrbana, EPS, IPS
+  if (/[A-ZÁÉÍÓÚÑ].*[A-ZÁÉÍÓÚÑ]/.test(w)) return w;
+  return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+}
+
 function extractZeroAdminEntities(rawText) {
   const clean = String(rawText || "").replace(/\s+/g, " ").trim();
 
@@ -1118,6 +1125,8 @@ function extractZeroAdminEntities(rawText) {
     "se",
     "nos",
     "me",
+    "y",
+    "o",
     "interesado",
     "interesada",
     "interesa",
@@ -1128,6 +1137,7 @@ function extractZeroAdminEntities(rawText) {
     "necesitan",
     "necesita",
     "solicitan",
+    "solicita",
     "tiene",
     "tienen",
     "empresa",
@@ -1157,21 +1167,24 @@ function extractZeroAdminEntities(rawText) {
   ]);
 
   let contactName = "Dirección Ejecutiva";
+  let rawMatchedContact = "";
   const triggerRegex =
     /(?:habl[eé]\s+con|reuni[oó]n\s+con|convers[eé]\s+con|llamada\s+con|contacto\s+con|me\s+reun[ií]\s+con|contacto\s*:|\bcon)\s+(?:el\s+|la\s+)?([^\n,.;:]+)/i;
   const triggerMatch = clean.match(triggerRegex);
   if (triggerMatch) {
     const tokens = triggerMatch[1].trim().split(/\s+/);
     const picked = [];
+    const rawPicked = [];
     for (const tok of tokens) {
       const bare = tok.replace(/[.,;:()]/g, "");
       if (!bare) continue;
       const lowerTok = bare.toLowerCase();
       if (contactStopwords.has(lowerTok)) break;
       const isTitle = /^(?:Dr\.?|Dra\.?|Ing\.?|Lic\.?|Sr\.?|Sra\.?)$/i.test(tok);
-      const isCapName = /^[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚáéíóúñÑ-]+$/.test(bare);
-      if (isTitle || isCapName) {
-        picked.push(isTitle ? tok : bare);
+      const isWord = /^[A-Za-zÁÉÍÓÚáéíóúñÑ-]+$/.test(bare);
+      if (isTitle || isWord) {
+        rawPicked.push(bare);
+        picked.push(isTitle ? titleCaseWord( bare ) + "." : titleCaseWord(bare));
         if (picked.length >= 4) break;
       } else {
         break;
@@ -1179,6 +1192,7 @@ function extractZeroAdminEntities(rawText) {
     }
     if (picked.length > 0) {
       contactName = picked.join(" ");
+      rawMatchedContact = rawPicked.join("\\s+");
     }
   }
 
@@ -1190,6 +1204,8 @@ function extractZeroAdminEntities(rawText) {
     "busca",
     "buscan",
     "interesa",
+    "interesado",
+    "interesados",
     "necesita",
     "necesitan",
     "solicita",
@@ -1203,7 +1219,15 @@ function extractZeroAdminEntities(rawText) {
     "estan",
     "tiene",
     "tienen",
+    "en",
+    "con",
+    "cotizar",
+    "rentar",
+    "comprar",
+    "adquirir",
   ]);
+
+  const lowercaseConnectors = new Set(["de", "del", "la", "el", "los", "las", "y", "e", "&"]);
 
   function trimCompanyPhrase(phrase) {
     const words = String(phrase || "").trim().split(/\s+/);
@@ -1211,8 +1235,9 @@ function extractZeroAdminEntities(rawText) {
     for (const w of words) {
       const cleanW = w.replace(/[.,;:()]/g, "");
       if (!cleanW) continue;
-      if (companyClauseStopwords.has(cleanW.toLowerCase())) break;
-      out.push(cleanW);
+      const low = cleanW.toLowerCase();
+      if (companyClauseStopwords.has(low)) break;
+      out.push(lowercaseConnectors.has(low) && out.length > 0 ? low : titleCaseWord(cleanW));
       if (out.length >= 6) break;
     }
     return out.join(" ").trim();
@@ -1221,10 +1246,9 @@ function extractZeroAdminEntities(rawText) {
   let companyName = "";
 
   // 1) Look right after extracted contactName: "... <contactName> de (la Empresa) <Company>"
-  if (contactName && contactName !== "Dirección Ejecutiva") {
-    const escapedContact = contactName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (rawMatchedContact) {
     const afterContactRegex = new RegExp(
-      escapedContact +
+      rawMatchedContact +
         "\\s+(?:de(?:\\s+la|\\s+el)?|del|en|@)\\s+(?:(?:empresa|compa[ñn][ií]a|firma|entidad|cliente)\\s+)?([^\\n,.;:]+)",
       "i"
     );
@@ -1237,7 +1261,7 @@ function extractZeroAdminEntities(rawText) {
   // 2) Look for explicit "Empresa / Compañía / Firma / Cliente <Name>" anywhere in the text
   if (!companyName) {
     const mExplicit = clean.match(
-      /\b(?:de\s+la\s+|de\s+el\s+|la\s+|el\s+)?(?:empresa|compa[ñn][ií]a|firma|cliente)\s+([A-ZÁÉÍÓÚÑ0-9][^\n,.;:]+)/i
+      /\b(?:de\s+la\s+|de\s+el\s+|la\s+|el\s+)?(?:empresa|compa[ñn][ií]a|firma|cliente)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9][^\n,.;:]+)/i
     );
     if (mExplicit && mExplicit[1]) {
       companyName = trimCompanyPhrase(mExplicit[1]);
@@ -1247,7 +1271,7 @@ function extractZeroAdminEntities(rawText) {
   // 3) Look for institutional prefixes that are part of the brand name ("Grupo X", "Banco Y", "Clínica Z", "EPS W", "Constructora V")
   if (!companyName) {
     const mInst = clean.match(
-      /\b((?:Grupo|Cl[ií]nica|Constructora|Banco|Corporaci[oó]n|EPS|IPS|Fondo|Aseguradora|Fintech|Inmobiliaria)\s+[A-ZÁÉÍÓÚÑ0-9][^\n,.;:]+)/i
+      /\b((?:Grupo|Cl[ií]nica|Constructora|Banco|Corporaci[oó]n|EPS|IPS|Fondo|Aseguradora|Fintech|Inmobiliaria)\s+[A-Za-zÁÉÍÓÚáéíóúñÑ0-9][^\n,.;:]+)/i
     );
     if (mInst && mInst[1]) {
       companyName = trimCompanyPhrase(mInst[1]);

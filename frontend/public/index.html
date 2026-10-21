@@ -109,6 +109,9 @@
             🔐 Login / Cambiar Usuario
           </button>
           <button class="btn btn-cyan" id="btn-enrich-all">⚡ Magic AI</button>
+          <button class="btn btn-gold" id="btn-topbar-voice" type="button" onclick="openZeroAdminAndDictate()" title="Dictar por voz en PC o Celular para crear Cliente + Oportunidad con IA">
+            🎙️ Dictar Voz
+          </button>
           <button class="btn btn-emerald" id="btn-open-zero-admin">+ Zero-Admin</button>
         </div>
       </header>
@@ -512,6 +515,10 @@
           <span class="m-icon">❖</span>
           <span class="m-lbl" data-i18n-m="kanban">Kanban</span>
         </button>
+        <button class="mobile-nav-item" onclick="openZeroAdminAndDictate()" style="color:var(--accent-gold); font-weight:700;">
+          <span class="m-icon">🎙️</span>
+          <span class="m-lbl">Voz IA</span>
+        </button>
         <button class="mobile-nav-item" data-mview="studio" onclick="switchView('studio')">
           <span class="m-icon">📈</span>
           <span class="m-lbl" data-i18n-m="studio">Studio</span>
@@ -560,9 +567,21 @@
         </button>
       </div>
 
-      <textarea id="zero-admin-textarea" rows="4" placeholder="Escribe o pega aquí la nota comercial..."></textarea>
+      <div id="zero-admin-voice-status" style="display:none; margin-bottom:8px; padding:8px 12px; border-radius:8px; background:rgba(245,158,11,0.14); border:1px solid var(--accent-gold); font-family:var(--font-mono); font-size:12px; color:var(--accent-gold); font-weight:600;">
+        🔴 Micrófono activo (es-CO / es-LATAM): Habla ahora en tu PC o Celular...
+      </div>
 
-      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+      <textarea id="zero-admin-textarea" rows="4" placeholder="Escribe, pega o pulsa '🎙️ Dictar por Micrófono' para hablar en tu PC o Celular (ej: 'Hablé con Juan Carlos Blanco de la Empresa CableSmart, le interesa FinActionable para Colombia, Ecuador y United States')..."></textarea>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-top:14px;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn btn-gold" type="button" id="btn-zero-admin-voice" onclick="toggleZeroAdminVoiceDictation()">
+            🎙️ Dictar por Micrófono (PC / Celular)
+          </button>
+          <button class="btn" type="button" onclick="document.getElementById('zero-admin-textarea').value='';" title="Limpiar texto">
+            🗑️ Limpiar
+          </button>
+        </div>
         <button class="btn btn-emerald" id="btn-submit-zero-admin">✨ Procesar con IA y Guardar en PostgreSQL</button>
       </div>
 
@@ -913,7 +932,12 @@
       </div>
 
       <div style="margin-bottom:12px;">
-        <label class="control-label" style="display:block; margin-bottom:4px;">Título de la Oportunidad *</label>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <label class="control-label">Título de la Oportunidad *</label>
+          <button class="btn btn-gold" type="button" id="btn-nd-voice" style="padding:4px 10px; font-size:11px;" onclick="dictateNewDealTitle()">
+            🎙️ Dictar Título por Voz
+          </button>
+        </div>
         <input type="text" id="nd-title" class="input-field" style="width:100%;" placeholder="Ej. Despliegue Agente IA Conciliaciones — Grupo Nutresa" />
       </div>
 
@@ -1182,6 +1206,6 @@
   </div>
 
   <div class="toast-banner" id="toast-banner"></div>
-  <script src="/app.js?v=20261021c"></script>
+  <script src="/app.js?v=20261021d"></script>
 </body>
 </html>
