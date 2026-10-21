@@ -534,7 +534,8 @@ function renderSmartGridView() {
 const accountModal = document.getElementById("account-modal");
 
 window.openAccountModal = function (accountId = null) {
-  if (!accountModal) return;
+  const modalEl = document.getElementById("account-modal") || accountModal;
+  if (!modalEl) return;
   const ownerSelect = document.getElementById("acc-owner-user");
   if (ownerSelect) {
     const usersList = state.users && state.users.length ? state.users : [state.currentUser];
@@ -543,47 +544,61 @@ window.openAccountModal = function (accountId = null) {
       .join("");
   }
 
+  const titleEl = document.getElementById("acc-modal-title") || document.getElementById("account-modal-title");
+  const idEl = document.getElementById("acc-id") || document.getElementById("acc-edit-id");
+  const companyEl = document.getElementById("acc-company") || document.getElementById("acc-company-name");
+  const domainEl = document.getElementById("acc-domain");
+  const industryEl = document.getElementById("acc-industry");
+  const countryEl = document.getElementById("acc-country");
+  const empEl = document.getElementById("acc-employees");
+  const contactNameEl = document.getElementById("acc-contact-name");
+  const contactRoleEl = document.getElementById("acc-contact-role");
+  const contactEmailEl = document.getElementById("acc-contact-email");
+
   if (accountId) {
     const acc = state.accounts.find((a) => Number(a.id) === Number(accountId));
     if (!acc) return;
-    document.getElementById("account-modal-title").textContent = `Editar Cliente & Contacto: ${acc.company_name}`;
-    document.getElementById("acc-edit-id").value = acc.id;
-    document.getElementById("acc-company-name").value = acc.company_name || "";
-    document.getElementById("acc-domain").value = acc.domain || "";
-    document.getElementById("acc-industry").value = acc.industry || "E-Commerce & Retail";
-    document.getElementById("acc-country").value = acc.country || "Colombia";
-    document.getElementById("acc-employees").value = acc.employee_range || "50-200";
-    document.getElementById("acc-contact-name").value = acc.contact_name || "";
-    document.getElementById("acc-contact-role").value = acc.contact_role || "";
-    document.getElementById("acc-contact-email").value = acc.contact_email || "";
+    if (titleEl) titleEl.textContent = `Editar Cliente & Contacto: ${acc.company_name}`;
+    if (idEl) idEl.value = acc.id;
+    if (companyEl) companyEl.value = acc.company_name || "";
+    if (domainEl) domainEl.value = acc.domain || "";
+    if (industryEl) industryEl.value = acc.industry || "Finanzas & Operaciones B2B";
+    if (countryEl) countryEl.value = acc.country || "Colombia / LATAM";
+    if (empEl) empEl.value = acc.employee_range || "50-200";
+    if (contactNameEl) contactNameEl.value = acc.contact_name || "";
+    if (contactRoleEl) contactRoleEl.value = acc.contact_role || "";
+    if (contactEmailEl) contactEmailEl.value = acc.contact_email || "";
     if (ownerSelect && acc.owner_user_id) {
       ownerSelect.value = String(acc.owner_user_id);
     }
   } else {
-    document.getElementById("account-modal-title").textContent = "Nuevo Cliente y Contacto B2B";
-    document.getElementById("acc-edit-id").value = "";
-    document.getElementById("acc-company-name").value = "";
-    document.getElementById("acc-domain").value = "";
-    document.getElementById("acc-industry").value = "E-Commerce & Retail";
-    document.getElementById("acc-country").value = "Colombia";
-    document.getElementById("acc-employees").value = "50-200";
-    document.getElementById("acc-contact-name").value = "";
-    document.getElementById("acc-contact-role").value = "";
-    document.getElementById("acc-contact-email").value = "";
+    if (titleEl) titleEl.textContent = "Registrar Nuevo Cliente y Contacto B2B";
+    if (idEl) idEl.value = "";
+    if (companyEl) companyEl.value = "";
+    if (domainEl) domainEl.value = "";
+    if (industryEl) industryEl.value = "Finanzas & Operaciones B2B";
+    if (countryEl) countryEl.value = "Colombia / LATAM";
+    if (empEl) empEl.value = "50-200";
+    if (contactNameEl) contactNameEl.value = "";
+    if (contactRoleEl) contactRoleEl.value = "CFO / Director Financiero";
+    if (contactEmailEl) contactEmailEl.value = "";
     if (ownerSelect && state.currentUser?.id) {
       ownerSelect.value = String(state.currentUser.id);
     }
   }
-  accountModal.classList.add("open");
+  modalEl.classList.add("open");
 };
 
 window.closeAccountModal = function () {
-  if (accountModal) accountModal.classList.remove("open");
+  const modalEl = document.getElementById("account-modal") || accountModal;
+  if (modalEl) modalEl.classList.remove("open");
 };
 
 window.saveAccountCrud = async function () {
-  const editId = document.getElementById("acc-edit-id")?.value;
-  const company_name = (document.getElementById("acc-company-name")?.value || "").trim();
+  const idEl = document.getElementById("acc-id") || document.getElementById("acc-edit-id");
+  const companyEl = document.getElementById("acc-company") || document.getElementById("acc-company-name");
+  const editId = idEl?.value;
+  const company_name = (companyEl?.value || "").trim();
   const domain = (document.getElementById("acc-domain")?.value || "").trim();
   const industry = (document.getElementById("acc-industry")?.value || "Servicios B2B").trim();
   const country = (document.getElementById("acc-country")?.value || "Colombia").trim();
