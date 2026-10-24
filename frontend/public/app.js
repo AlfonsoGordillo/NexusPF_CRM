@@ -705,7 +705,7 @@ function renderSmartGridView() {
           }
         </td>
         <td style="font-size:12px; color:var(--text-secondary); max-width:250px;">
-          ${a.ai_finactionable_insight || "Haz clic en '<svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3 1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg> Magic AI' para ejecutar agente financiero y comercial."}
+          ${a.ai_finactionable_insight || "Haz clic en 'Magic AI' para ejecutar agente financiero y comercial."}
         </td>
         <td style="font-size:12px; color:var(--text-primary); max-width:260px; font-style:italic;">
           ${a.ai_personalized_icebreaker ? `"${a.ai_personalized_icebreaker}"` : "—"}
