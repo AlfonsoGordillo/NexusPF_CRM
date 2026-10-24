@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NexusPF CRM — AI-Driven Revenue & FinActionable OS</title>
-  <link rel="stylesheet" href="/styles.css?v=20261020c" />
+  <title>NexusPF CRM — Revenue & FinActionable OS</title>
+  <link rel="stylesheet" href="/styles.css?v=20261021h" />
 </head>
 <body>
   <div class="app-layout">
@@ -12,150 +12,234 @@
     <aside class="sidebar">
       <div>
         <div class="brand-block">
+          <div class="brand-header-row">
+            <div class="brand-logo-group">
+              <span class="brand-mark">N</span>
+              <span class="brand-title">NexusPF</span>
+            </div>
+            <button class="sidebar-collapse-btn" type="button" onclick="toggleSidebarCollapse()" title="Contraer / Expandir barra lateral">
+              <svg class="nx-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+            </button>
+          </div>
           <div class="brand-badge-row">
             <span class="brand-pill pf">projectsfactory.io</span>
             <span class="brand-pill fa">finanactionable.co</span>
           </div>
-          <div class="brand-title">
-            <span>◈ NexusPF</span>
-          </div>
-          <p class="brand-subtitle">AI-Driven Revenue & Digital Asset OS · Venta CapEx vs Renta MRR</p>
+          <p class="brand-subtitle">Revenue & Digital Asset OS · CapEx vs MRR</p>
         </div>
 
-        <div class="nav-section-label">Operación Comercial & IA</div>
+        <div class="nav-section-label">Workspace Comercial</div>
         <ul class="nav-list">
           <li>
-            <button class="nav-btn active" data-view="dashboard">
-              <span>⚡ Command Center</span>
+            <button class="nav-btn active" data-view="dashboard" title="Command Center (Resumen Ejecutivo)">
+              <span class="nav-btn-left">
+                <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+                <span class="nav-btn-label">Command Center</span>
+              </span>
               <span class="nav-tag">LIVE</span>
             </button>
           </li>
           <li>
-            <button class="nav-btn" data-view="smartgrid">
-              <span>✦ Smart Grid & Magic AI</span>
-              <span class="nav-tag">Clay+Attio</span>
+            <button class="nav-btn" data-view="smartgrid" title="Clientes & Contactos B2B (Smart Grid)">
+              <span class="nav-btn-left">
+                <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span class="nav-btn-label">Clientes & Smart Grid</span>
+              </span>
+              <span class="nav-tag">B2B</span>
             </button>
           </li>
           <li>
-            <button class="nav-btn" data-view="kanban">
-              <span>❖ Pipeline Dual Kanban</span>
-              <span class="nav-tag">CapEx/MRR</span>
+            <button class="nav-btn" data-view="kanban" title="Pipeline Dual Kanban (CapEx vs MRR)">
+              <span class="nav-btn-left">
+                <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="14" rx="1.5"/></svg>
+                <span class="nav-btn-label">Pipeline Kanban</span>
+              </span>
+              <span class="nav-tag">Deals</span>
             </button>
           </li>
           <li>
-            <button class="nav-btn" data-view="studio">
-              <span>📈 FinActionable Studio</span>
-              <span class="nav-tag">Simulador</span>
+            <button class="nav-btn" data-view="studio" title="FinActionable Deal Studio (Simulador)">
+              <span class="nav-btn-left">
+                <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                <span class="nav-btn-label">FinActionable Studio</span>
+              </span>
+              <span class="nav-tag">LTV</span>
             </button>
           </li>
           <li>
-            <button class="nav-btn" data-view="catalog">
-              <span>📦 Catálogo IP & Tenants</span>
-              <span class="nav-tag">Activos</span>
+            <button class="nav-btn" data-view="catalog" title="Catálogo IP & Tenants Activos">
+              <span class="nav-btn-left">
+                <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                <span class="nav-btn-label">Catálogo IP & Tenants</span>
+              </span>
+              <span class="nav-tag">IP</span>
             </button>
           </li>
           <li>
-            <button class="nav-btn" data-view="team">
-              <span>👥 Equipo & Roles RBAC</span>
-              <span class="nav-tag">6 Perfiles</span>
+            <button class="nav-btn" data-view="team" title="Equipo Corporativo & Accesos RBAC">
+              <span class="nav-btn-left">
+                <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+                <span class="nav-btn-label">Equipo & Accesos RBAC</span>
+              </span>
+              <span class="nav-tag">RBAC</span>
             </button>
           </li>
           <li>
-            <button class="nav-btn" data-view="mcp">
-              <span>🔌 Servidor MCP & Cloud</span>
-              <span class="nav-tag">5 Tools</span>
+            <button class="nav-btn" data-view="mcp" title="Servidor MCP & Despliegue Cloud">
+              <span class="nav-btn-left">
+                <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                <span class="nav-btn-label">Servidor MCP & Cloud</span>
+              </span>
+              <span class="nav-tag">API</span>
             </button>
           </li>
         </ul>
       </div>
 
       <div class="sidebar-footer">
-        <div class="infra-status">
+        <div class="infra-status" title="PostgreSQL 16 + MCP Server Activo">
           <span class="pulse-dot"></span>
-          <span id="db-status-text">PostgreSQL 16 + MCP Ready</span>
+          <span id="db-status-text">PostgreSQL 16 · Online</span>
         </div>
-        <div style="font-size:11px; color:var(--text-muted); line-height:1.45;">
-          Docker Desktop Local · Render Blueprint (`render.yaml`) · Firebase Auth/Hosting Ready
+        <div class="sidebar-footer-meta" style="font-size:11px; color:var(--text-muted); line-height:1.4;">
+          Docker · Render · Firebase Ready
         </div>
       </div>
     </aside>
 
     <!-- MAIN WORKSPACE -->
     <main class="main-workspace">
-      <!-- TOPBAR -->
+      <!-- CLEAN TOPBAR (Swiss Fintech Precision) -->
       <header class="topbar">
-        <div class="cmdk-trigger" id="open-cmdk-btn">
-          <span>✨ <strong>Zero-Admin AI Bar:</strong> Pega una nota de voz, correo o reunión para crear Cuenta + Deal...</span>
-          <span class="kbd-shortcut">Ctrl + K</span>
-        </div>
-        <div class="topbar-actions">
-          <div class="env-switch-group" title="Personalizar Tema, Idioma y Modo de Dispositivo">
-            <button class="env-chip-btn active-chip" id="btn-theme-toggle" type="button" onclick="toggleThemeMode()" title="Alternar Modo Oscuro / Claro">
-              🌙 Oscuro
-            </button>
-            <button class="env-chip-btn active-chip" id="btn-lang-toggle" type="button" onclick="toggleLanguage()" title="Cambiar Idioma Español / English">
-              🇪🇸 ES
-            </button>
-            <button class="env-chip-btn active-chip" id="btn-device-toggle" type="button" onclick="toggleDeviceMode()" title="Alternar Vista PC / Vista App Celular">
-              💻 PC
-            </button>
+        <div class="topbar-left">
+          <div class="mobile-brand-chip">
+            <span class="brand-mark" style="width:24px; height:24px; font-size:12px;">N</span>
+            <span>NexusPF</span>
           </div>
 
-          <button class="btn" id="auth-user-pill" onclick="switchView('team')" style="border-color:rgba(16,185,129,0.5); background:rgba(16,185,129,0.08);" title="Ver perfil RBAC y gestionar equipo">
-            <span id="auth-avatar-badge" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--accent-emerald); color:#04130d; font-weight:700; font-size:11px;">AG</span>
-            <span id="auth-user-label" style="font-size:12px;">Alfonso Gordillo · <strong style="color:var(--accent-emerald);">SUPER_ADMIN</strong></span>
+          <div class="cmdk-trigger" id="open-cmdk-btn">
+            <div class="cmdk-trigger-left">
+              <svg class="nx-icon" style="color:var(--accent-emerald);" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <span><strong>Zero-Admin AI:</strong> Dicta o pega nota para crear Cliente + Oportunidad...</span>
+            </div>
+            <div class="cmdk-trigger-right">
+              <button
+                type="button"
+                class="cmdk-mic-inline"
+                id="btn-topbar-voice"
+                onclick="event.stopPropagation(); openZeroAdminAndDictate();"
+                title="Dictar por voz en PC o Celular"
+              >
+                <svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                <span>Dictar</span>
+              </button>
+              <span class="kbd-shortcut">⌘K</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn" id="btn-topbar-vault" type="button" onclick="openAttachmentsVaultModal()" title="Bóveda de Archivos PDF, Notas de Voz y Documentos en PostgreSQL">
+            <svg class="nx-icon" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            <span class="btn-label-desktop">Archivos</span>
           </button>
-          <button class="btn" id="btn-topbar-login" onclick="openLoginScreenGate()" title="Ir a Pantalla Inicial de Login / Cambiar Usuario / Registrarse" style="padding:7px 10px; font-size:11.5px;">
-            🔐 Login / Cambiar Usuario
+
+          <button class="btn btn-cyan" id="btn-enrich-all" type="button" title="Enriquecer cuentas B2B con Magic AI">
+            <svg class="nx-icon" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            <span class="btn-label-desktop">Magic AI</span>
           </button>
-          <button class="btn btn-cyan" id="btn-enrich-all">⚡ Magic AI</button>
-          <button class="btn" id="btn-topbar-vault" type="button" onclick="openAttachmentsVaultModal()" style="border-color:rgba(56,189,248,0.55); color:var(--accent-cyan);" title="Subir PDFs, Archivos de Voz (.mp3/.wav/.ogg/.m4a), Documentos e Imágenes directo a PostgreSQL">
-            📎 Archivos / Voz
+
+          <button class="btn btn-emerald" id="btn-open-zero-admin" type="button">
+            <svg class="nx-icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            <span class="btn-label-desktop">Nueva Oportunidad</span>
           </button>
-          <button class="btn btn-gold" id="btn-topbar-voice" type="button" onclick="openZeroAdminAndDictate()" title="Dictar por voz en PC o Celular para crear Cliente + Oportunidad con IA">
-            🎙️ Dictar Voz
+
+          <!-- UNIFIED AVATAR PROFILE & ENVIRONMENT POPOVER TRIGGER -->
+          <button class="profile-trigger-btn" id="auth-user-pill" type="button" onclick="toggleProfilePopover(event)" title="Menú de Perfil, Cambio Rápido de Usuario y Preferencias (Tema, Idioma, Vista)">
+            <span class="avatar-circle" id="auth-avatar-badge">AG</span>
+            <span id="auth-user-label" style="font-size:12px; font-weight:500;">Alfonso Gordillo</span>
+            <svg class="nx-icon nx-icon-sm" style="color:var(--text-muted);" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
           </button>
-          <button class="btn btn-emerald" id="btn-open-zero-admin">+ Zero-Admin</button>
+
+          <!-- UNIFIED PROFILE POPOVER -->
+          <div class="profile-popover" id="user-profile-popover" onclick="event.stopPropagation()">
+            <div style="padding-bottom:10px; border-bottom:1px solid var(--border-hairline); display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <div style="min-width:0;">
+                <div id="popover-user-name" style="font-weight:600; font-size:13px; color:var(--text-primary);">Alfonso Gordillo</div>
+                <div id="popover-user-email" style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis;">alfonso@projectsfactory.io</div>
+              </div>
+              <span id="popover-user-role" class="badge badge-renta">SUPER_ADMIN</span>
+            </div>
+
+            <div>
+              <div class="popover-section-title">Preferencias de Interfaz</div>
+              <div class="env-switch-group">
+                <button class="env-chip-btn active-chip" id="btn-theme-toggle" type="button" onclick="toggleThemeMode()" title="Alternar Modo Oscuro / Claro">
+                  Oscuro
+                </button>
+                <button class="env-chip-btn active-chip" id="btn-lang-toggle" type="button" onclick="toggleLanguage()" title="Cambiar Idioma Español / English">
+                  ES
+                </button>
+                <button class="env-chip-btn active-chip" id="btn-device-toggle" type="button" onclick="toggleDeviceMode()" title="Alternar Vista PC / Simulador Móvil">
+                  PC
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div class="popover-section-title">Cambio Rápido de Sesión (RBAC)</div>
+              <div id="popover-quick-users" style="display:flex; flex-direction:column; gap:3px; max-height:190px; overflow-y:auto;"></div>
+            </div>
+
+            <div style="padding-top:10px; border-top:1px solid var(--border-hairline); display:flex; gap:6px;">
+              <button class="btn" id="btn-topbar-login" type="button" style="flex:1; justify-content:center; font-size:11.5px;" onclick="closeProfilePopover(); openLoginScreenGate();">
+                Login / Registro
+              </button>
+              <button class="btn" id="btn-popover-team" type="button" style="flex:1; justify-content:center; font-size:11.5px;" onclick="closeProfilePopover(); switchView('team');">
+                Equipo RBAC
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
       <div class="view-container">
         <!-- BARRA MAESTRA DE SEGMENTACIÓN GLOBAL (EXCLUSIVA PARA SUPER_ADMIN) -->
-        <div id="admin-segmentation-bar" style="display:none; margin-bottom:18px; padding:12px 16px; border-radius:12px; background:linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08)); border:1px solid rgba(16,185,129,0.45);">
+        <div id="admin-segmentation-bar" class="admin-seg-bar" style="display:none;">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
             <div style="display:flex; align-items:center; gap:8px;">
-              <span class="badge badge-renta" style="font-size:11px;">👑 SEGMENTACIÓN MAESTRA (SOLO SUPER_ADMIN)</span>
-              <span style="font-size:12.5px; color:var(--text-secondary);">
-                Filtra en tiempo real todos los Dashboards, KPIs, Smart Grid y Kanban:
+              <span class="badge badge-renta">VISTA GLOBAL SUPER_ADMIN</span>
+              <span style="font-size:12px; color:var(--text-secondary);">
+                Segmentación en tiempo real de Dashboards, KPIs, Smart Grid y Kanban
               </span>
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
-              <span id="seg-summary-badge" style="font-family:var(--font-mono); font-size:11.5px; color:var(--accent-cyan); font-weight:700;">
+              <span id="seg-summary-badge" style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); font-weight:600;">
                 Vista Global: 100% Cartera
               </span>
-              <button class="btn" type="button" style="padding:4px 10px; font-size:11px;" onclick="resetAdminSegmentation()">
-                ↺ Limpiar Filtros
+              <button class="btn" type="button" style="padding:4px 9px; font-size:11px;" onclick="resetAdminSegmentation()">
+                Restablecer filtros
               </button>
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap:10px;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px;">
             <div>
-              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">👤 1. Ejecutivo Responsable</label>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:11px;">Ejecutivo Responsable</label>
               <select id="seg-owner" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
                 <option value="ALL">Todos los Ejecutivos</option>
               </select>
             </div>
             <div>
-              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">🏷️ 2. Marca / Unidad</label>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:11px;">Unidad de Negocio</label>
               <select id="seg-brand" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
-                <option value="ALL">Todas las Marcas</option>
+                <option value="ALL">Todas las Unidades</option>
                 <option value="projectsfactory.io">projectsfactory.io</option>
                 <option value="finanactionable.co">finanactionable.co</option>
               </select>
             </div>
             <div>
-              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">💼 3. Modalidad Comercial</label>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:11px;">Modalidad Comercial</label>
               <select id="seg-modality" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
                 <option value="ALL">Todas (Renta + Venta)</option>
                 <option value="RENTA_MRR">Renta Recurrente (MRR)</option>
@@ -164,13 +248,13 @@
               </select>
             </div>
             <div>
-              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">🌎 4. País / Operación</label>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:11px;">País / Región</label>
               <select id="seg-country" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
                 <option value="ALL">Todos los Países</option>
               </select>
             </div>
             <div>
-              <label class="control-label" style="display:block; margin-bottom:3px; font-size:10.5px;">📊 5. Etapa del Kanban</label>
+              <label class="control-label" style="display:block; margin-bottom:3px; font-size:11px;">Etapa del Pipeline</label>
               <select id="seg-stage" class="input-field" style="width:100%; padding:6px 8px; font-size:12px;" onchange="applyAdminSegmentation()">
                 <option value="ALL">Todas las Etapas</option>
                 <option value="DISCOVERY">1. Discovery</option>
@@ -184,10 +268,10 @@
         </div>
 
         <!-- BANNER DE ALCANCE DE CARTERA PARA ROLES NO-ADMIN -->
-        <div id="role-scope-banner" style="display:none; margin-bottom:16px; padding:10px 14px; border-radius:10px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.35); font-size:12.5px; color:var(--text-secondary); justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div id="role-scope-banner" style="display:none; margin-bottom:16px; padding:10px 14px; border-radius:var(--radius-md); background:var(--bg-surface); border:1px solid var(--border-subtle); font-size:12.5px; color:var(--text-secondary); justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
           <div id="role-scope-banner-text"></div>
           <button class="btn" type="button" style="padding:4px 10px; font-size:11px;" onclick="openLoginScreenGate()">
-            🔐 Cambiar de Usuario / Rol
+            Cambiar de Usuario
           </button>
         </div>
 
@@ -578,36 +662,28 @@
       <!-- FLOATING BOTTOM NAVIGATION FOR MOBILE / CELULAR MODE -->
       <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
         <button class="mobile-nav-item active" data-mview="dashboard" onclick="switchView('dashboard')">
-          <span class="m-icon">⚡</span>
+          <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
           <span class="m-lbl" data-i18n-m="home">Inicio</span>
         </button>
         <button class="mobile-nav-item" data-mview="smartgrid" onclick="switchView('smartgrid')">
-          <span class="m-icon">✦</span>
-          <span class="m-lbl" data-i18n-m="grid">Grid IA</span>
+          <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="m-lbl" data-i18n-m="grid">Clientes</span>
+        </button>
+        <button class="mobile-nav-item voice-fab" onclick="openZeroAdminAndDictate()" title="Dictar por Voz con IA">
+          <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          <span class="m-lbl">Dictar IA</span>
         </button>
         <button class="mobile-nav-item" data-mview="kanban" onclick="switchView('kanban')">
-          <span class="m-icon">❖</span>
+          <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="14" rx="1.5"/></svg>
           <span class="m-lbl" data-i18n-m="kanban">Kanban</span>
         </button>
-        <button class="mobile-nav-item" onclick="openZeroAdminAndDictate()" style="color:var(--accent-gold); font-weight:700;">
-          <span class="m-icon">🎙️</span>
-          <span class="m-lbl">Voz IA</span>
-        </button>
         <button class="mobile-nav-item" data-mview="studio" onclick="switchView('studio')">
-          <span class="m-icon">📈</span>
-          <span class="m-lbl" data-i18n-m="studio">Studio</span>
+          <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          <span class="m-lbl" data-i18n-m="studio">Simulador</span>
         </button>
         <button class="mobile-nav-item" data-mview="catalog" onclick="switchView('catalog')">
-          <span class="m-icon">📦</span>
+          <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
           <span class="m-lbl" data-i18n-m="catalog">Catálogo</span>
-        </button>
-        <button class="mobile-nav-item" data-mview="team" onclick="switchView('team')">
-          <span class="m-icon">👥</span>
-          <span class="m-lbl" data-i18n-m="team">Equipo</span>
-        </button>
-        <button class="mobile-nav-item" onclick="openLoginScreenGate()">
-          <span class="m-icon">🔐</span>
-          <span class="m-lbl" data-i18n-m="login">Login</span>
         </button>
       </nav>
     </main>
@@ -1363,6 +1439,6 @@
   </div>
 
   <div class="toast-banner" id="toast-banner"></div>
-  <script src="/app.js?v=20261021g"></script>
+  <script src="/app.js?v=20261021h"></script>
 </body>
 </html>

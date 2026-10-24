@@ -112,65 +112,92 @@ window.toggleDeviceMode = function () {
   );
 };
 
+window.toggleSidebarCollapse = function () {
+  document.body.classList.toggle("sidebar-collapsed");
+  localStorage.setItem(
+    "nexuspf_sidebar_collapsed",
+    document.body.classList.contains("sidebar-collapsed") ? "1" : "0"
+  );
+};
+
+window.toggleProfilePopover = function (event) {
+  if (event) event.stopPropagation();
+  const pop = document.getElementById("user-profile-popover");
+  if (!pop) return;
+  pop.classList.toggle("open");
+};
+
+window.closeProfilePopover = function () {
+  const pop = document.getElementById("user-profile-popover");
+  if (pop) pop.classList.remove("open");
+};
+
+document.addEventListener("click", () => {
+  window.closeProfilePopover();
+});
+
 function applyEnvironmentPreferences() {
   STAGES = state.lang === "en" ? STAGES_EN : STAGES_ES;
   document.body.classList.toggle("theme-light", state.theme === "light");
   document.body.classList.toggle("device-mobile", state.deviceMode === "mobile");
+  if (localStorage.getItem("nexuspf_sidebar_collapsed") === "1") {
+    document.body.classList.add("sidebar-collapsed");
+  }
 
-  // Update Topbar & Login Gate toggle chips
+  // Update Profile Popover & Login Gate toggle chips
   const btnTheme = document.getElementById("btn-theme-toggle");
   const gateTheme = document.getElementById("gate-btn-theme");
-  const themeLabel = state.theme === "light" ? t("☀️ Claro", "☀️ Light") : t("🌙 Oscuro", "🌙 Dark");
+  const themeLabel = state.theme === "light" ? t("Claro", "Light") : t("Oscuro", "Dark");
   if (btnTheme) btnTheme.textContent = themeLabel;
   if (gateTheme) gateTheme.textContent = themeLabel;
 
   const btnLang = document.getElementById("btn-lang-toggle");
   const gateLang = document.getElementById("gate-btn-lang");
-  const langLabel = state.lang === "en" ? "🇺🇸 EN" : "🇪🇸 ES";
+  const langLabel = state.lang === "en" ? "EN" : "ES";
   if (btnLang) btnLang.textContent = langLabel;
   if (gateLang) gateLang.textContent = langLabel;
 
   const btnDev = document.getElementById("btn-device-toggle");
   const gateDev = document.getElementById("gate-btn-device");
-  const devLabel = state.deviceMode === "mobile" ? t("📱 Celular", "📱 Mobile") : "💻 PC";
+  const devLabel = state.deviceMode === "mobile" ? t("Móvil", "Mobile") : "PC";
   if (btnDev) btnDev.textContent = devLabel;
   if (gateDev) gateDev.textContent = devLabel;
 
-  // Translate Sidebar Navigation & Mobile Bottom Bar
+  // Translate Sidebar Navigation (preserving SVG icons) & Mobile Bottom Bar
   const navTranslations = {
     dashboard: {
-      title: t("⚡ Command Center", "⚡ Command Center"),
+      title: t("Command Center", "Command Center"),
       tag: "LIVE",
       mobile: t("Inicio", "Home"),
     },
     smartgrid: {
-      title: t("✦ Smart Grid & Magic AI", "✦ Smart Grid & Magic AI"),
-      tag: "Clay+Attio",
-      mobile: t("Grid IA", "AI Grid"),
+      title: t("Clientes & Smart Grid", "Accounts & Smart Grid"),
+      tag: "B2B",
+      mobile: t("Clientes", "Accounts"),
     },
     kanban: {
-      title: t("❖ Pipeline Dual Kanban", "❖ Dual Pipeline Kanban"),
-      tag: "CapEx/MRR",
+      title: t("Pipeline Kanban", "Pipeline Kanban"),
+      tag: "Deals",
       mobile: "Kanban",
     },
     studio: {
-      title: t("📈 FinActionable Studio", "📈 FinActionable Studio"),
-      tag: t("Simulador", "Simulator"),
-      mobile: "Studio",
+      title: t("FinActionable Studio", "FinActionable Studio"),
+      tag: "LTV",
+      mobile: t("Simulador", "Studio"),
     },
     catalog: {
-      title: t("📦 Catálogo IP & Tenants", "📦 IP Catalog & Tenants"),
-      tag: t("Activos", "Assets"),
+      title: t("Catálogo IP & Tenants", "IP Catalog & Tenants"),
+      tag: "IP",
       mobile: t("Catálogo", "Catalog"),
     },
     team: {
-      title: t("👥 Equipo & Roles RBAC", "👥 Team & RBAC Roles"),
-      tag: t("6 Perfiles", "6 Roles"),
+      title: t("Equipo & Accesos RBAC", "Team & RBAC Access"),
+      tag: "RBAC",
       mobile: t("Equipo", "Team"),
     },
     mcp: {
-      title: t("🔌 Servidor MCP & Cloud", "🔌 MCP Server & Cloud"),
-      tag: "5 Tools",
+      title: t("Servidor MCP & Cloud", "MCP Server & Cloud"),
+      tag: "API",
       mobile: "MCP",
     },
   };
@@ -178,9 +205,10 @@ function applyEnvironmentPreferences() {
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     const v = btn.dataset.view;
     if (navTranslations[v]) {
-      const spans = btn.querySelectorAll("span");
-      if (spans[0]) spans[0].textContent = navTranslations[v].title;
-      if (spans[1]) spans[1].textContent = navTranslations[v].tag;
+      const labelEl = btn.querySelector(".nav-btn-label");
+      const tagEl = btn.querySelector(".nav-tag");
+      if (labelEl) labelEl.textContent = navTranslations[v].title;
+      if (tagEl) tagEl.textContent = navTranslations[v].tag;
     }
   });
 
@@ -193,16 +221,16 @@ function applyEnvironmentPreferences() {
   });
 
   // Topbar & Command bar translations
-  const cmdkTrigger = document.querySelector("#open-cmdk-btn span:first-child");
-  if (cmdkTrigger) {
-    cmdkTrigger.innerHTML =
+  const cmdkTriggerText = document.querySelector("#open-cmdk-btn .cmdk-trigger-left span");
+  if (cmdkTriggerText) {
+    cmdkTriggerText.innerHTML =
       state.lang === "en"
-        ? "✨ <strong>Zero-Admin AI Bar:</strong> Paste a voice note, email or meeting transcript to create Account + Deal..."
-        : "✨ <strong>Zero-Admin AI Bar:</strong> Pega una nota de voz, correo o reunión para crear Cuenta + Deal...";
+        ? "<strong>Zero-Admin AI:</strong> Dictate or paste note to create Account + Deal..."
+        : "<strong>Zero-Admin AI:</strong> Dicta o pega nota para crear Cliente + Oportunidad...";
   }
   const btnTopLogin = document.getElementById("btn-topbar-login");
   if (btnTopLogin) {
-    btnTopLogin.textContent = t("🔐 Login / Cambiar Usuario", "🔐 Login / Switch User");
+    btnTopLogin.textContent = t("Login / Registro", "Login / Register");
   }
 
   // Section titles & descriptions across all views
@@ -216,32 +244,32 @@ function applyEnvironmentPreferences() {
       "Unified view of digital products in Recurring Rental (MRR/AaaS) vs. Turnkey Buyout Sale (CapEx)"
     ),
     "#view-smartgrid .section-title": t(
-      "Smart Grid B2B con 'Magic AI Columns' (Estilo Attio + Clay)",
-      "B2B Smart Grid with 'Magic AI Columns' (Attio + Clay Style)"
+      "Directorio de Clientes & Contactos B2B (Smart Grid)",
+      "B2B Accounts & Decision Makers Directory (Smart Grid)"
     ),
     "#view-smartgrid .section-desc": t(
-      "Cada columna azul es calculada por agentes IA que analizan la cuenta, recomiendan qué activo de projectsfactory.io ofrecer y redactan el gancho ejecutivo.",
-      "Every cyan column is computed by AI agents that analyze the account, recommend which projectsfactory.io asset to offer, and draft the executive icebreaker."
+      "Cartera de cuentas corporativas enriquecida por agentes IA con recomendación de modalidad Venta CapEx vs. Renta MRR.",
+      "Corporate accounts portfolio enriched by AI agents with CapEx Buyout vs. MRR Rental recommendations."
     ),
     "#view-kanban .section-title": t(
-      "Pipeline Dual Kanban: Venta Directa (CapEx) vs. Renta Mensual (MRR / AaaS)",
-      "Dual Pipeline Kanban: Direct Buyout (CapEx) vs. Monthly Rental (MRR / AaaS)"
+      "Pipeline Comercial Dual: Venta CapEx vs. Renta MRR",
+      "Dual Commercial Pipeline: CapEx Buyout vs. MRR Rental"
     ),
     "#view-studio .section-title": t(
-      "FinActionable Deal Studio — Simulador Interactivo Venta vs. Renta",
-      "FinActionable Deal Studio — Interactive Buyout vs. Rental Simulator"
+      "FinActionable Deal Studio — Simulador Venta vs. Renta",
+      "FinActionable Deal Studio — Buyout vs. Rental Simulator"
     ),
     "#view-catalog .section-title": t(
-      "Catálogo de Productos Digitales, Agentes AaaS & Tenants Activos",
+      "Catálogo de Productos Digitales, Agentes AaaS & Tenants",
       "Digital Products Catalog, AaaS Agents & Active Tenants"
     ),
     "#view-team .section-title": t(
-      "Equipo Corporativo, Autenticación & Perfiles de Acceso (RBAC)",
-      "Corporate Team, Authentication & Access Profiles (RBAC)"
+      "Equipo Corporativo, Autenticación & Perfiles RBAC",
+      "Corporate Team, Authentication & RBAC Profiles"
     ),
     "#view-mcp .section-title": t(
-      "Servidor MCP Nativo & Arquitectura Docker → Render + Firebase",
-      "Native MCP Server & Docker → Render + Firebase Architecture"
+      "Servidor MCP Nativo & Arquitectura Docker · Render · Firebase",
+      "Native MCP Server & Docker · Render · Firebase Architecture"
     ),
   };
 
@@ -253,8 +281,8 @@ function applyEnvironmentPreferences() {
   // Login Gate translations
   const tabLogin = document.getElementById("tab-btn-login");
   const tabReg = document.getElementById("tab-btn-register");
-  if (tabLogin) tabLogin.textContent = t("🔑 Iniciar Sesión", "🔑 Sign In");
-  if (tabReg) tabReg.textContent = t("✨ Registrarse por Primera Vez", "✨ First-Time Sign Up");
+  if (tabLogin) tabLogin.textContent = t("Iniciar Sesión", "Sign In");
+  if (tabReg) tabReg.textContent = t("Registrarse por Primera Vez", "First-Time Sign Up");
 }
 
 function fmtUsd(val) {
@@ -540,44 +568,44 @@ function renderDualCurveSvg(containerId, buyoutPrice, setupFee, mrr, maintFee) {
     const bx = xPos(breakevenM);
     const by = yPos(setupFee + mrr * breakevenM);
     breakevenMarker = `
-      <line x1="${bx}" y1="${padT}" x2="${bx}" y2="${padT + plotH}" stroke="#06b6d4" stroke-dasharray="4 4" stroke-width="1.5"/>
-      <circle cx="${bx}" cy="${by}" r="6" fill="#06b6d4" stroke="#06090f" stroke-width="2"/>
-      <rect x="${Math.min(bx - 58, w - 135)}" y="${Math.max(by - 34, 6)}" width="126" height="22" rx="5" fill="#0b101b" stroke="#06b6d4"/>
-      <text x="${Math.min(bx + 5, w - 72)}" y="${Math.max(by - 19, 21)}" fill="#22d3ee" font-family="JetBrains Mono" font-size="10" text-anchor="middle">Break-even: Mes ${breakevenM.toFixed(1)}</text>
+      <line x1="${bx}" y1="${padT}" x2="${bx}" y2="${padT + plotH}" stroke="var(--accent-cyan)" stroke-dasharray="4 4" stroke-width="1.5"/>
+      <circle cx="${bx}" cy="${by}" r="6" fill="var(--accent-cyan)" stroke="var(--bg-surface)" stroke-width="2"/>
+      <rect x="${Math.min(bx - 58, w - 135)}" y="${Math.max(by - 34, 6)}" width="126" height="22" rx="5" fill="var(--bg-elevated)" stroke="var(--accent-cyan)"/>
+      <text x="${Math.min(bx + 5, w - 72)}" y="${Math.max(by - 19, 21)}" fill="var(--accent-cyan)" font-family="JetBrains Mono" font-size="10" font-weight="600" text-anchor="middle">Break-even: Mes ${breakevenM.toFixed(1)}</text>
     `;
   }
 
   container.innerHTML = `
     <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:100%; overflow:visible;">
       <!-- Grid lines -->
-      <line x1="${padL}" y1="${yPos(maxVal * 0.25)}" x2="${w - padR}" y2="${yPos(maxVal * 0.25)}" stroke="#1e293b" stroke-width="1"/>
-      <line x1="${padL}" y1="${yPos(maxVal * 0.5)}" x2="${w - padR}" y2="${yPos(maxVal * 0.5)}" stroke="#1e293b" stroke-width="1"/>
-      <line x1="${padL}" y1="${yPos(maxVal * 0.75)}" x2="${w - padR}" y2="${yPos(maxVal * 0.75)}" stroke="#1e293b" stroke-width="1"/>
-      <line x1="${padL}" y1="${padT + plotH}" x2="${w - padR}" y2="${padT + plotH}" stroke="#334155" stroke-width="1.2"/>
+      <line x1="${padL}" y1="${yPos(maxVal * 0.25)}" x2="${w - padR}" y2="${yPos(maxVal * 0.25)}" stroke="var(--border-hairline)" stroke-width="1"/>
+      <line x1="${padL}" y1="${yPos(maxVal * 0.5)}" x2="${w - padR}" y2="${yPos(maxVal * 0.5)}" stroke="var(--border-hairline)" stroke-width="1"/>
+      <line x1="${padL}" y1="${yPos(maxVal * 0.75)}" x2="${w - padR}" y2="${yPos(maxVal * 0.75)}" stroke="var(--border-hairline)" stroke-width="1"/>
+      <line x1="${padL}" y1="${padT + plotH}" x2="${w - padR}" y2="${padT + plotH}" stroke="var(--border-subtle)" stroke-width="1.2"/>
 
       <!-- Y Axis Labels -->
-      <text x="${padL - 8}" y="${yPos(maxVal * 0.75) + 4}" fill="#64748b" font-family="JetBrains Mono" font-size="10" text-anchor="end">${fmtUsd(maxVal * 0.75)}</text>
-      <text x="${padL - 8}" y="${yPos(maxVal * 0.5) + 4}" fill="#64748b" font-family="JetBrains Mono" font-size="10" text-anchor="end">${fmtUsd(maxVal * 0.5)}</text>
-      <text x="${padL - 8}" y="${yPos(maxVal * 0.25) + 4}" fill="#64748b" font-family="JetBrains Mono" font-size="10" text-anchor="end">${fmtUsd(maxVal * 0.25)}</text>
+      <text x="${padL - 8}" y="${yPos(maxVal * 0.75) + 4}" fill="var(--text-muted)" font-family="JetBrains Mono" font-size="10" text-anchor="end">${fmtUsd(maxVal * 0.75)}</text>
+      <text x="${padL - 8}" y="${yPos(maxVal * 0.5) + 4}" fill="var(--text-muted)" font-family="JetBrains Mono" font-size="10" text-anchor="end">${fmtUsd(maxVal * 0.5)}</text>
+      <text x="${padL - 8}" y="${yPos(maxVal * 0.25) + 4}" fill="var(--text-muted)" font-family="JetBrains Mono" font-size="10" text-anchor="end">${fmtUsd(maxVal * 0.25)}</text>
 
       <!-- X Axis Labels -->
-      <text x="${xPos(1)}" y="${h - 10}" fill="#94a3b8" font-family="JetBrains Mono" font-size="10">Mes 1</text>
-      <text x="${xPos(12)}" y="${h - 10}" fill="#94a3b8" font-family="JetBrains Mono" font-size="10" text-anchor="middle">Mes 12 (Año 1)</text>
-      <text x="${xPos(24)}" y="${h - 10}" fill="#94a3b8" font-family="JetBrains Mono" font-size="10" text-anchor="middle">Mes 24 (Año 2)</text>
-      <text x="${xPos(36)}" y="${h - 10}" fill="#94a3b8" font-family="JetBrains Mono" font-size="10" text-anchor="end">Mes 36 (Año 3)</text>
+      <text x="${xPos(1)}" y="${h - 10}" fill="var(--text-secondary)" font-family="JetBrains Mono" font-size="10">Mes 1</text>
+      <text x="${xPos(12)}" y="${h - 10}" fill="var(--text-secondary)" font-family="JetBrains Mono" font-size="10" text-anchor="middle">Mes 12 (Año 1)</text>
+      <text x="${xPos(24)}" y="${h - 10}" fill="var(--text-secondary)" font-family="JetBrains Mono" font-size="10" text-anchor="middle">Mes 24 (Año 2)</text>
+      <text x="${xPos(36)}" y="${h - 10}" fill="var(--text-secondary)" font-family="JetBrains Mono" font-size="10" text-anchor="end">Mes 36 (Año 3)</text>
 
       <!-- Curves -->
-      <path d="${buyoutPath}" fill="none" stroke="#f59e0b" stroke-width="3"/>
-      <path d="${rentPath}" fill="none" stroke="#10b981" stroke-width="3.5"/>
+      <path d="${buyoutPath}" fill="none" stroke="var(--accent-gold)" stroke-width="2.5"/>
+      <path d="${rentPath}" fill="none" stroke="var(--accent-emerald)" stroke-width="3"/>
 
       ${breakevenMarker}
 
       <!-- Legend -->
       <circle cx="${padL + 14}" cy="14" r="5" fill="#10b981"/>
-      <text x="${padL + 25}" y="18" fill="#f8fafc" font-family="Plus Jakarta Sans" font-size="11.5" font-weight="600">Renta Recurrente SaaS/AaaS (MRR Acumulado)</text>
+      <text x="${padL + 25}" y="18" fill="var(--text-primary)" font-family="Plus Jakarta Sans" font-size="11.5" font-weight="600">Renta Recurrente SaaS/AaaS (MRR Acumulado)</text>
 
       <circle cx="${padL + 310}" cy="14" r="5" fill="#f59e0b"/>
-      <text x="${padL + 321}" y="18" fill="#f8fafc" font-family="Plus Jakarta Sans" font-size="11.5" font-weight="600">Venta Llave en Mano (CapEx + Soporte)</text>
+      <text x="${padL + 321}" y="18" fill="var(--text-primary)" font-family="Plus Jakarta Sans" font-size="11.5" font-weight="600">Venta Llave en Mano (CapEx + Soporte)</text>
     </svg>
   `;
 }
@@ -655,7 +683,7 @@ function renderSmartGridView() {
           <div style="font-size:11.5px; color:var(--text-muted);">${a.country} · ${a.employee_range} emp.</div>
         </td>
         <td>
-          <div style="font-weight:600;">👤 ${a.contact_name || "Sin contacto"}</div>
+          <div style="font-weight:600; color:var(--text-primary);">${a.contact_name || "Sin contacto"}</div>
           <div style="font-size:11.5px; color:var(--text-secondary);">${a.contact_role || "Ejecutivo"}</div>
           ${a.contact_email ? `<div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-cyan);">${a.contact_email}</div>` : ""}
         </td>
@@ -677,7 +705,7 @@ function renderSmartGridView() {
           }
         </td>
         <td style="font-size:12px; color:var(--text-secondary); max-width:250px;">
-          ${a.ai_finactionable_insight || "Haz clic en '⚡ Magic AI' para ejecutar agente financiero y comercial."}
+          ${a.ai_finactionable_insight || "Haz clic en '<svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3 1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg> Magic AI' para ejecutar agente financiero y comercial."}
         </td>
         <td style="font-size:12px; color:var(--text-primary); max-width:260px; font-style:italic;">
           ${a.ai_personalized_icebreaker ? `"${a.ai_personalized_icebreaker}"` : "—"}
@@ -685,13 +713,13 @@ function renderSmartGridView() {
         <td>
           <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
             <button class="btn btn-cyan" style="padding:6px 10px; font-size:11px;" onclick="enrichSingleAccount(${a.id})" title="Enriquecer con IA">
-              ⚡ Magic AI
+              <svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3 1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg> Magic AI
             </button>
             <button class="btn btn-outline" style="padding:5px 8px; font-size:11px; border-color:rgba(56,189,248,0.4); color:var(--accent-cyan);" onclick="openAttachmentsVaultModal({ accountId: ${a.id} })" title="Subir o ver PDFs, Notas de Voz y Archivos en PostgreSQL">
-              📎 Archivos
+              <svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l7.88-7.88"/></svg> Archivos
             </button>
             <button class="btn btn-outline" style="padding:5px 8px; font-size:11px;" onclick="openAccountModal(${a.id})" title="Editar Cliente y Contacto B2B">
-              ✏️ Editar
+              <svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Editar
             </button>
             <button class="btn btn-outline" style="padding:5px 8px; font-size:11px; border-color:rgba(244,63,94,0.35); color:#fda4af;" onclick="deleteAccountCrud(${a.id})" title="Eliminar Cliente">
               🗑️
@@ -1171,23 +1199,23 @@ function renderKanbanView() {
 
               <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:8px; padding:5px 7px; background:var(--bg-obsidian); border-radius:6px; border-left:2px solid var(--accent-emerald);">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <span>👤 <strong>${lastBy}</strong> · ${lastAt}</span>
-                  <span style="background:rgba(16,185,129,0.2); color:var(--accent-emerald); font-weight:700; padding:1px 5px; border-radius:99px; font-size:9.5px;">${ownerInitials}</span>
+                  <span><span class="avatar-circle" style="width:16px; height:16px; font-size:8.5px; display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; margin-right:3px;">${ownerInitials}</span><strong>${lastBy}</strong> · ${lastAt}</span>
+                  
                 </div>
                 <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-secondary); margin-top:2px;" title="${(d.last_justification || d.next_action || "").replace(/"/g, "&quot;")}">
-                  📝 ${d.last_justification || d.next_action || "Calificación inicial"}
+                  ${d.last_justification || d.next_action || "Calificación inicial"}
                 </div>
               </div>
 
               <div style="display:flex; gap:5px; justify-content:space-between; align-items:center; flex-wrap:wrap;">
-                <button class="btn" style="padding:4px 7px; font-size:10.5px;" onclick="openDealInStudio(${d.id})" title="Abrir en Simulador Financiero">📈 ${t("Simular", "Sim")}</button>
-                <button class="btn btn-gold" style="padding:4px 7px; font-size:10.5px;" onclick="flipDealModality(${d.id})" title="Alternar 1-Click entre Renta SaaS y Venta CapEx">⇄ Flip</button>
-                <button class="btn" style="padding:4px 7px; font-size:10.5px; border-color:rgba(56,189,248,0.4); color:var(--accent-cyan);" onclick="openAttachmentsVaultModal({ dealId: ${d.id}, accountId: ${d.account_id || "null"} })" title="Subir o ver PDFs y Archivos de Voz en PostgreSQL">📎</button>
+                <button class="btn" style="padding:4px 7px; font-size:10.5px;" onclick="openDealInStudio(${d.id})" title="Abrir en Simulador Financiero"><svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg> ${t("Simular", "Sim")}</button>
+                <button class="btn btn-gold" style="padding:4px 7px; font-size:10.5px;" onclick="flipDealModality(${d.id})" title="Alternar 1-Click entre Renta SaaS y Venta CapEx"><svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg> Flip</button>
+                <button class="btn" style="padding:4px 7px; font-size:10.5px; border-color:rgba(56,189,248,0.4); color:var(--accent-cyan);" onclick="openAttachmentsVaultModal({ dealId: ${d.id}, accountId: ${d.account_id || "null"} })" title="Subir o ver PDFs y Archivos de Voz en PostgreSQL"><svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l7.88-7.88"/></svg></button>
                 <button class="btn btn-cyan" style="padding:4px 7px; font-size:10.5px;" onclick="openDealHistoryModal(${d.id})" title="Ver auditoría de cambios de etapa">
-                  📜 (${histCount || 1})
+                  <svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${histCount || 1}
                 </button>
                 <select class="input-field" style="width:auto; padding:3px 6px; font-size:10px; height:25px;" onchange="triggerMobileStageSelect(${d.id}, this.value)" title="Mover etapa (Táctil / Celular o PC)">
-                  <option value="">➔ ${t("Mover", "Move")}</option>
+                  <option value="">${t("Mover", "Move")} ▾</option>
                   ${STAGES.filter((s) => s.id !== d.stage)
                     .map((s) => `<option value="${s.id}">${s.label}</option>`)
                     .join("")}
@@ -1816,7 +1844,36 @@ function renderAuthUserUI() {
   const label = document.getElementById("auth-user-label");
   if (badge) badge.textContent = u.avatar_initials || "AG";
   if (label) {
-    label.innerHTML = `${u.name} · <strong style="color:var(--accent-emerald);">${u.role_code || u.role}</strong>`;
+    label.innerHTML = `${u.name} <span style="color:var(--text-muted); font-weight:400;">·</span> <span style="color:var(--accent-emerald); font-family:var(--font-mono); font-size:11px;">${u.role_code || "EXEC"}</span>`;
+  }
+
+  const popName = document.getElementById("popover-user-name");
+  const popEmail = document.getElementById("popover-user-email");
+  const popRole = document.getElementById("popover-user-role");
+  const popTeamBtn = document.getElementById("btn-popover-team");
+  if (popName) popName.textContent = u.name;
+  if (popEmail) popEmail.textContent = u.email;
+  if (popRole) popRole.textContent = u.role_code || "SALES_EXECUTIVE";
+  if (popTeamBtn) {
+    popTeamBtn.style.display = u.role_code === "SUPER_ADMIN" ? "inline-flex" : "none";
+  }
+
+  const popQuickUsers = document.getElementById("popover-quick-users");
+  if (popQuickUsers && state.users.length > 0) {
+    popQuickUsers.innerHTML = state.users
+      .map((usr) => {
+        const isCurrent = Number(usr.id) === Number(u.id);
+        return `
+          <button type="button" class="quick-user-item ${isCurrent ? "active-user" : ""}" onclick="closeProfilePopover(); switchActiveExecutive(${usr.id});">
+            <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+              <span class="avatar-circle" style="width:22px; height:22px; font-size:10px;">${usr.avatar_initials || "EX"}</span>
+              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:${isCurrent ? "600" : "400"};">${usr.name}</span>
+            </div>
+            <span style="font-family:var(--font-mono); font-size:10px; color:${isCurrent ? "var(--accent-emerald)" : "var(--text-muted)"};">${usr.role_code || "EXEC"}</span>
+          </button>
+        `;
+      })
+      .join("");
   }
 
   const stResp = document.getElementById("st-responsible-name");
@@ -1834,20 +1891,17 @@ function renderAuthUserUI() {
         const isCurrent = (usr.email || "").toLowerCase() === (u.email || "").toLowerCase();
         return `
           <div onclick="switchActiveExecutive(${usr.id})"
-               style="padding:9px 11px; border-radius:10px; cursor:pointer; border:1px solid ${
+               style="padding:8px 10px; border-radius:8px; cursor:pointer; border:1px solid ${
                  isCurrent ? "var(--accent-emerald)" : "var(--border-hairline)"
-               }; background:${isCurrent ? "rgba(16,185,129,0.14)" : "rgba(9,13,22,0.75)"}; display:flex; align-items:center; gap:9px;">
-            <div style="width:30px; height:30px; border-radius:50%; background:${
-              isCurrent ? "var(--accent-emerald)" : "#1e293b"
-            }; color:${isCurrent ? "#03150e" : "#f8fafc"}; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:11px;">
+               }; background:${isCurrent ? "var(--accent-emerald-dim)" : "var(--bg-elevated)"}; display:flex; align-items:center; gap:9px;">
+            <div class="avatar-circle" style="width:28px; height:28px; font-size:11px;">
               ${usr.avatar_initials}
             </div>
             <div style="flex:1; overflow:hidden;">
-              <div style="font-size:12px; font-weight:700; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              <div style="font-size:12px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                 ${usr.name} ${isCurrent ? "✓" : ""}
               </div>
               <div style="font-size:10.5px; color:var(--accent-emerald); font-family:var(--font-mono);">${usr.role_code || "SALES_EXECUTIVE"}</div>
-              <div style="font-size:10px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">user: <code>${usr.username || usr.email}</code></div>
             </div>
           </div>
         `;
@@ -2122,9 +2176,9 @@ function renderTeamUsersView() {
             </td>
             <td>
               <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <button class="btn btn-emerald" style="padding:4px 8px; font-size:11px;" onclick="switchActiveExecutive(${u.id})" title="Usar este ejecutivo como sesión activa">🔐 Activar</button>
-                <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="openTeamMemberModal(${u.id})">✏️ Editar</button>
-                <button class="btn" style="padding:4px 8px; font-size:11px; color:var(--accent-rose); border-color:rgba(244,63,94,0.35);" onclick="deleteTeamMemberCrud(${u.id})">🗑️</button>
+                <button class="btn btn-emerald" style="padding:4px 8px; font-size:11px;" onclick="switchActiveExecutive(${u.id})" title="Usar este ejecutivo como sesión activa">Activar</button>
+                <button class="btn" style="padding:4px 8px; font-size:11px;" onclick="openTeamMemberModal(${u.id})"><svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Editar</button>
+                <button class="btn" style="padding:4px 8px; font-size:11px; color:var(--accent-rose); border-color:rgba(244,63,94,0.35);" onclick="deleteTeamMemberCrud(${u.id})"><svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
               </div>
             </td>
           </tr>
@@ -2369,7 +2423,7 @@ function renderCatalogView() {
               ? `
           <div style="display:flex; justify-content:space-between; gap:6px;">
             <button class="btn btn-emerald" style="padding:6px 10px; font-size:11.5px; flex:1; justify-content:center;" onclick="incrementProductTenant(${p.id})">
-              +1 Tenant Renta
+              <svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> +1 Tenant Renta
             </button>
             <button class="btn btn-cyan" style="padding:6px 10px; font-size:11.5px;" onclick="openProductModal(${p.id})">
               ✏️ Editar
@@ -2380,7 +2434,7 @@ function renderCatalogView() {
           </div>`
               : `
           <div style="padding:7px 10px; border-radius:8px; background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.25); font-size:11.5px; color:var(--accent-cyan); text-align:center; font-family:var(--font-mono);">
-            👁️ Modo Consulta Comercial — Solo Lectura
+            <svg class="nx-icon nx-icon-sm" style="margin-right:6px;" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg> Modo Consulta Comercial · Solo Lectura
           </div>`
           }
         </div>
