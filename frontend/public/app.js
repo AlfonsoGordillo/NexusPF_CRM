@@ -431,12 +431,12 @@ function applyRoleBasedVisibilityAndSegmentationUI() {
   const roleCode = String(u.role_code || "SUPER_ADMIN").toUpperCase();
 
   // 1. Strict Allowed Views Matrix per Role:
-  //    - SALES_EXECUTIVE / SALES_MANAGER only see their 3 high-velocity Sales screens: Leads Multicanal, Pipeline Kanban & Clientes Smart Grid.
+  //    - SALES_EXECUTIVE / SALES_MANAGER see their 4 commercial screens: Leads Multicanal, Pipeline Kanban, Clientes Smart Grid & Catálogo + List Price.
   //    - Other corporate profiles see the screens tailored to their domain.
   const allowedViewsByRole = {
     SUPER_ADMIN: ["dashboard", "leads", "smartgrid", "kanban", "studio", "catalog", "team", "mcp"],
-    SALES_EXECUTIVE: ["leads", "kanban", "smartgrid"],
-    SALES_MANAGER: ["leads", "kanban", "smartgrid"],
+    SALES_EXECUTIVE: ["leads", "kanban", "smartgrid", "catalog"],
+    SALES_MANAGER: ["leads", "kanban", "smartgrid", "catalog"],
     FINANCE_STRATEGIST: ["dashboard", "studio", "kanban", "catalog"],
     SOLUTIONS_ARCHITECT: ["dashboard", "kanban", "catalog", "mcp"],
     PARTNER_MANAGER: ["leads", "kanban", "smartgrid", "catalog"],
@@ -525,7 +525,7 @@ function applyRoleBasedVisibilityAndSegmentationUI() {
       } else if (roleCode === "PARTNER_MANAGER") {
         roleBannerText.innerHTML = `🤝 <strong>Tablero de Alianzas & Canales (${u.name}):</strong> Pantallas enfocadas en <strong>Leads Multicanal, Pipeline Kanban, Clientes y Catálogo IP</strong> (${state.deals.length} oportunidades).`;
       } else {
-        roleBannerText.innerHTML = `⚡ <strong>Cockpit Sales Manager (${u.name} · ${roleCode}):</strong> Pantallas exclusivas de alta velocidad: <strong>Leads Multicanal (🌐 Web · 📱 Android App · 💬 WhatsApp)</strong>, <strong>Pipeline Kanban (Seguimiento & Cierre Rápido)</strong> y <strong>Clientes Smart Grid</strong> (${state.deals.length} oportunidades · ${state.accounts.length} clientes).`;
+        roleBannerText.innerHTML = `⚡ <strong>Cockpit Sales Manager (${u.name} · ${roleCode}):</strong> Pantallas habilitadas: <strong>Leads Multicanal (🌐 Web · 📱 Android App · 💬 WhatsApp)</strong>, <strong>Pipeline Kanban</strong>, <strong>Clientes Smart Grid</strong> y <strong>Catálogo & List Price (Venta vs. Renta)</strong> (${state.deals.length} oportunidades · ${state.accounts.length} clientes).`;
       }
     }
   }
@@ -2427,13 +2427,160 @@ document.getElementById("btn-save-simulation").addEventListener("click", () => {
   runStudioSimulation(true);
 });
 
-// View 5: Digital Products Catalog (Full CRUD for Admin/Architect/Finance; Read-Only Consultation for Sales/Partner/Auditor)
+// View 5: Digital Products Catalog & Official List Price Book (Full CRUD for Admin/Architect/Finance; Commercial Quoting Mode for Sales Executives)
+state.catalogBrandFilter = "ALL";
+
+window.setCatalogBrandFilter = function (brand) {
+  state.catalogBrandFilter = brand || "ALL";
+  const btnMap = {
+    ALL: document.getElementById("cat-filter-ALL"),
+    "projectsfactory.io": document.getElementById("cat-filter-pf"),
+    "finanactionable.co": document.getElementById("cat-filter-fa"),
+  };
+  Object.entries(btnMap).forEach(([k, btn]) => {
+    if (!btn) return;
+    btn.className = k === state.catalogBrandFilter ? "btn btn-emerald" : "btn";
+  });
+  renderCatalogView();
+};
+
+window.quoteProductFromCatalog = function (productId, modality = "RENTA_MRR") {
+  const p = state.products.find((item) => Number(item.id) === Number(productId));
+  if (!p) return;
+
+  window.switchView("leads");
+  const prodSel = document.getElementById("mc-product");
+  if (prodSel) {
+    prodSel.value = String(p.id);
+  }
+  const modSel = document.getElementById("mc-modality");
+  if (modSel) {
+    modSel.value = modality;
+  }
+  window.syncMultichannelProductDefaults();
+  document.getElementById("mc-company")?.focus();
+
+  const priceDesc =
+    modality === "VENTA_CAPEX"
+      ? `List Price Venta CapEx: ${fmtUsd(p.buyout_price_usd)} USD`
+      : `List Price Renta MRR: ${fmtUsd(p.monthly_rent_mrr_usd)}/mes (+${fmtUsd(p.setup_fee_usd)} Setup)`;
+
+  showToast(`🏷️ "${p.name}" cargado en Leads Multicanal con ${priceDesc}.`);
+};
+
+window.copyProductListPriceSheet = function (productId) {
+  const p = state.products.find((item) => Number(item.id) === Number(productId));
+  if (!p) return;
+
+  const mrr = Number(p.monthly_rent_mrr_usd || 950);
+  const setup = Number(p.setup_fee_usd || 2200);
+  const buyout = Number(p.buyout_price_usd || 21000);
+  const ltv24 = setup + mrr * 24;
+  const breakeven = ((buyout - setup) / Math.max(1, mrr)).toFixed(1);
+
+  const sheetText = [
+    `🏷️ *FICHA OFICIAL DE LIST PRICE — ${p.name.toUpperCase()}* (${p.brand} · Código: ${p.code})`,
+    `📌 Categoría: ${p.category || "SaaS / AI Asset"}`,
+    `🟢 *Opción 1 — Renta Mensual (SaaS / AaaS):* ${fmtUsd(mrr)} USD/mes + ${fmtUsd(setup)} USD Setup Inicial (LTV 24m: ${fmtUsd(ltv24)} USD)`,
+    `🟡 *Opción 2 — Venta Llave en Mano (Buyout CapEx IP):* ${fmtUsd(buyout)} USD pago único (Punto de equilibrio: Mes ${breakeven})`,
+    `⚙️ Stack: ${p.tech_stack || "Cloud Native"}`,
+  ].join("\n");
+
+  navigator.clipboard?.writeText(sheetText).catch(() => {});
+  showToast(`📋 Ficha de List Price (Venta vs. Renta) de "${p.name}" copiada para WhatsApp / Email.`);
+};
+
 function renderCatalogView() {
   const container = document.getElementById("catalog-cards-container");
-  const roleCode = state.currentUser?.role_code || "SALES_EXECUTIVE";
+  const listPriceTbody = document.getElementById("catalog-listprice-tbody");
+  const roleCode = String(state.currentUser?.role_code || "SALES_EXECUTIVE").toUpperCase();
   const canEditCatalog = ["SUPER_ADMIN", "FINANCE_STRATEGIST", "SOLUTIONS_ARCHITECT"].includes(roleCode);
 
-  const productCards = state.products
+  const newProdBtn = document.getElementById("btn-open-new-product");
+  if (newProdBtn) {
+    newProdBtn.style.display = canEditCatalog ? "inline-flex" : "none";
+  }
+
+  const modeBadge = document.getElementById("catalog-role-mode-badge");
+  if (modeBadge) {
+    modeBadge.textContent = canEditCatalog
+      ? "🛠️ MODO ADMINISTRACIÓN & PRICING OFICIAL (CRUD ACTIVO)"
+      : "🏷️ MODO SALES EXECUTIVE · CONSULTA DE LIST PRICE & COTIZACIÓN 1-CLIC";
+  }
+
+  const filteredProducts = (state.products || []).filter((p) => {
+    if (!state.catalogBrandFilter || state.catalogBrandFilter === "ALL") return true;
+    return p.brand === state.catalogBrandFilter;
+  });
+
+  // 1. Render Official List Price Book Table
+  if (listPriceTbody) {
+    listPriceTbody.innerHTML = filteredProducts
+      .map((p) => {
+        const mrr = Number(p.monthly_rent_mrr_usd || 950);
+        const setup = Number(p.setup_fee_usd || 2200);
+        const buyout = Number(p.buyout_price_usd || 21000);
+        const ltv24 = setup + mrr * 24;
+        const breakeven = ((buyout - setup) / Math.max(1, mrr)).toFixed(1);
+
+        return `
+          <tr>
+            <td>
+              <div class="cell-company">${p.name}</div>
+              <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">${p.code} · ${p.tech_stack || ""}</div>
+            </td>
+            <td>
+              <span class="brand-pill ${p.brand === "finanactionable.co" ? "fa" : "pf"}">${p.brand}</span>
+              <div class="cell-sub" style="margin-top:4px;">${p.category || "SaaS / AI Asset"}</div>
+            </td>
+            <td>
+              <div style="font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--accent-emerald);">
+                ${fmtUsd(mrr)}/mes
+              </div>
+              <div class="cell-sub">Canon Mensual Renta</div>
+            </td>
+            <td>
+              <div style="font-family:var(--font-mono); font-size:13px; color:var(--text-primary); font-weight:600;">
+                +${fmtUsd(setup)} USD
+              </div>
+              <div class="cell-sub">Implementación / Onboarding</div>
+            </td>
+            <td>
+              <div style="font-family:var(--font-mono); font-size:13px; color:var(--accent-cyan); font-weight:700;">
+                ${fmtUsd(ltv24)}
+              </div>
+              <div class="cell-sub">Setup + 24 meses</div>
+            </td>
+            <td>
+              <div style="font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--accent-gold);">
+                ${fmtUsd(buyout)} USD
+              </div>
+              <div class="cell-sub">Compra Llave en Mano (IP)</div>
+            </td>
+            <td>
+              <span class="badge badge-hibrido">Mes ${breakeven}</span>
+            </td>
+            <td>
+              <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                <button class="btn btn-emerald" type="button" style="padding:4px 8px; font-size:11px;" onclick="quoteProductFromCatalog(${p.id}, 'RENTA_MRR')" title="Crear Lead precargando List Price de Renta Mensual">
+                  🟢 Cotizar Renta
+                </button>
+                <button class="btn btn-gold" type="button" style="padding:4px 8px; font-size:11px;" onclick="quoteProductFromCatalog(${p.id}, 'VENTA_CAPEX')" title="Crear Lead precargando List Price de Venta Llave en Mano">
+                  🟡 Cotizar Venta
+                </button>
+                <button class="btn" type="button" style="padding:4px 8px; font-size:11px;" onclick="copyProductListPriceSheet(${p.id})" title="Copiar ficha de List Price para WhatsApp">
+                  📋 Copiar
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  // 2. Render Product Cards Grid
+  const productCards = filteredProducts
     .map(
       (p) => `
       <div class="product-card">
@@ -2457,16 +2604,16 @@ function renderCatalogView() {
         <div>
           <div class="deal-metrics-box" style="margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-              <span>Renta SaaS / AaaS:</span>
+              <span>🟢 List Price Renta:</span>
               <strong style="color:var(--accent-emerald);">${fmtUsd(p.monthly_rent_mrr_usd)}/mes (+${fmtUsd(p.setup_fee_usd)} setup)</strong>
             </div>
             <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-              <span>Venta Llave en Mano (IP):</span>
+              <span>🟡 List Price Venta IP:</span>
               <strong style="color:var(--accent-gold);">${fmtUsd(p.buyout_price_usd)} USD</strong>
             </div>
             <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-              <span>Costo Cloud / Tenant:</span>
-              <span style="font-family:var(--font-mono); color:var(--text-secondary);">${fmtUsd(p.infra_cost_monthly_usd)}/mes</span>
+              <span>LTV Renta (24 Meses):</span>
+              <span style="font-family:var(--font-mono); color:var(--accent-cyan); font-weight:700;">${fmtUsd(Number(p.setup_fee_usd || 0) + Number(p.monthly_rent_mrr_usd || 0) * 24)}</span>
             </div>
             <div style="display:flex; justify-content:space-between; padding-top:6px; border-top:1px solid var(--border-hairline);">
               <span>Tenants en Renta: <strong>${p.active_tenants}</strong></span>
@@ -2477,7 +2624,7 @@ function renderCatalogView() {
           ${
             canEditCatalog
               ? `
-          <div style="display:flex; justify-content:space-between; gap:6px;">
+          <div style="display:flex; justify-content:space-between; gap:6px; margin-bottom:6px;">
             <button class="btn btn-emerald" style="padding:6px 10px; font-size:11.5px; flex:1; justify-content:center;" onclick="incrementProductTenant(${p.id})">
               <svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> +1 Tenant Renta
             </button>
@@ -2488,11 +2635,19 @@ function renderCatalogView() {
               🗑️
             </button>
           </div>`
-              : `
-          <div style="padding:7px 10px; border-radius:8px; background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.25); font-size:11.5px; color:var(--accent-cyan); text-align:center; font-family:var(--font-mono);">
-            <svg class="nx-icon nx-icon-sm" style="margin-right:6px;" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg> Modo Consulta Comercial · Solo Lectura
-          </div>`
+              : ""
           }
+          <div style="display:flex; justify-content:space-between; gap:6px;">
+            <button class="btn btn-emerald" type="button" style="padding:6px 9px; font-size:11px; flex:1; justify-content:center;" onclick="quoteProductFromCatalog(${p.id}, 'RENTA_MRR')">
+              🟢 Cotizar Renta
+            </button>
+            <button class="btn btn-gold" type="button" style="padding:6px 9px; font-size:11px; flex:1; justify-content:center;" onclick="quoteProductFromCatalog(${p.id}, 'VENTA_CAPEX')">
+              🟡 Cotizar Venta
+            </button>
+            <button class="btn" type="button" style="padding:6px 9px; font-size:11px;" onclick="copyProductListPriceSheet(${p.id})" title="Copiar List Price para WhatsApp">
+              📋 Ficha
+            </button>
+          </div>
         </div>
       </div>
     `
@@ -3246,29 +3401,31 @@ function getLeadTemperatureBadge(temp) {
 window.selectMultichannelTab = function (channel) {
   const ch = String(channel || "WHATSAPP").toUpperCase();
   state.activeMultichannelTab = ch;
-  const hiddenEl = document.getElementById("mc-source-channel");
+  const hiddenEl = document.getElementById("mc-source-channel") || document.getElementById("mc-channel");
   if (hiddenEl) hiddenEl.value = ch;
 
+  const badgeEl = document.getElementById("mc-active-channel-badge");
+  if (badgeEl) {
+    badgeEl.textContent =
+      ch === "WHATSAPP" ? "💬 WHATSAPP" : ch === "ANDROID_APP" ? "📱 ANDROID APP" : "🌐 PÁGINA WEB";
+  }
+
   const tabs = {
-    WHATSAPP: document.getElementById("mc-tab-whatsapp"),
-    ANDROID_APP: document.getElementById("mc-tab-android"),
-    WEB_PAGE: document.getElementById("mc-tab-web"),
+    WHATSAPP: document.getElementById("mc-tab-WHATSAPP") || document.getElementById("mc-tab-whatsapp"),
+    ANDROID_APP: document.getElementById("mc-tab-ANDROID_APP") || document.getElementById("mc-tab-android"),
+    WEB_PAGE: document.getElementById("mc-tab-WEB_PAGE") || document.getElementById("mc-tab-web"),
   };
   Object.entries(tabs).forEach(([key, btn]) => {
     if (!btn) return;
-    if (key === ch) {
-      btn.className = "btn btn-emerald";
-    } else {
-      btn.className = "btn";
-    }
+    btn.className = key === ch ? "btn btn-emerald mc-channel-tab" : "btn mc-channel-tab";
   });
 
-  const helper = document.getElementById("mc-channel-helper");
-  const noteInput = document.getElementById("mc-note");
+  const helper = document.getElementById("mc-channel-helper-text") || document.getElementById("mc-channel-helper");
+  const noteInput = document.getElementById("mc-notes") || document.getElementById("mc-note");
   if (helper) {
     if (ch === "WHATSAPP") {
       helper.innerHTML =
-        "💬 <strong>Canal activo: WhatsApp Business Directo.</strong> Pega el mensaje de WhatsApp del prospecto o llena los datos para crear el Cliente + Oportunidad y activar el SLA de respuesta en menos de 15 minutos.";
+        "💬 <strong>Canal activo: WhatsApp Business Directo.</strong> Pega el mensaje de WhatsApp del prospecto o llena los datos para responder en 1 clic.";
       if (noteInput) {
         noteInput.placeholder =
           "Ej. 'Hola Camila, soy Jorge Pardo de Logística Andina (+57 315 800 9911), nos interesa rentar el agente autónomo por $890/mes...'";
@@ -3295,10 +3452,41 @@ window.syncMultichannelProductDefaults = function () {
   const prodSel = document.getElementById("mc-product");
   if (!prodSel || !prodSel.selectedOptions[0]) return;
   const opt = prodSel.selectedOptions[0];
+  const mrr = Math.round(Number(opt.dataset.mrr || 950));
+  const buyout = Math.round(Number(opt.dataset.buyout || 21000));
+  const setup = Math.round(Number(opt.dataset.setup || 2200));
+  const ltv24 = setup + mrr * 24;
+  const breakeven = ((buyout - setup) / Math.max(1, mrr)).toFixed(1);
+
   const mrrEl = document.getElementById("mc-mrr");
   const buyoutEl = document.getElementById("mc-buyout");
-  if (mrrEl && opt.dataset.mrr) mrrEl.value = Math.round(Number(opt.dataset.mrr));
-  if (buyoutEl && opt.dataset.buyout) buyoutEl.value = Math.round(Number(opt.dataset.buyout));
+  if (mrrEl) mrrEl.value = mrr;
+  if (buyoutEl) buyoutEl.value = buyout;
+
+  const detailsBox = document.getElementById("mc-listprice-details");
+  if (detailsBox) {
+    detailsBox.innerHTML = `
+      <div style="padding:5px 8px; border-radius:6px; background:var(--bg-obsidian); border-left:2px solid var(--accent-emerald);">
+        🟢 Renta: <strong style="color:var(--accent-emerald);">${fmtUsd(mrr)}/mes</strong> + <span style="color:var(--text-secondary);">${fmtUsd(setup)} Setup</span> <span style="color:var(--accent-cyan);">(LTV 24m: ${fmtUsd(ltv24)})</span>
+      </div>
+      <div style="padding:5px 8px; border-radius:6px; background:var(--bg-obsidian); border-left:2px solid var(--accent-gold);">
+        🟡 Venta IP: <strong style="color:var(--accent-gold);">${fmtUsd(buyout)} USD</strong> <span style="color:var(--text-muted);">(Eq: Mes ${breakeven})</span>
+      </div>
+    `;
+  }
+};
+
+window.applyMultichannelListPrice = function (modality) {
+  const modSel = document.getElementById("mc-modality");
+  if (modSel && modality) {
+    modSel.value = modality;
+  }
+  window.syncMultichannelProductDefaults();
+  showToast(
+    modality === "VENTA_CAPEX"
+      ? "🟡 List Price Oficial de Venta Llave en Mano (CapEx) aplicado al Lead."
+      : "🟢 List Price Oficial de Renta Mensual (MRR + Setup) aplicado al Lead."
+  );
 };
 
 window.fillMultichannelQuickSample = function () {
@@ -3348,11 +3536,12 @@ window.fillMultichannelQuickSample = function () {
   setVal("mc-modality", s.modality);
   setVal("mc-temperature", s.temp);
   setVal("mc-note", s.note);
+  setVal("mc-notes", s.note);
   showToast(`✨ Ejemplo de Lead (${ch}) cargado listo para crear en 1 clic.`);
 };
 
 window.dictateMultichannelNote = function () {
-  const noteEl = document.getElementById("mc-note");
+  const noteEl = document.getElementById("mc-notes") || document.getElementById("mc-note");
   if (!noteEl) return;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
@@ -3377,7 +3566,11 @@ window.dictateMultichannelNote = function () {
 };
 
 window.submitMultichannelLead = async function () {
-  const sourceChannel = document.getElementById("mc-source-channel")?.value || state.activeMultichannelTab || "WHATSAPP";
+  const sourceChannel =
+    document.getElementById("mc-source-channel")?.value ||
+    document.getElementById("mc-channel")?.value ||
+    state.activeMultichannelTab ||
+    "WHATSAPP";
   const companyName = (document.getElementById("mc-company")?.value || "").trim();
   const contactName = (document.getElementById("mc-contact")?.value || "").trim();
   const contactPhone = (document.getElementById("mc-phone")?.value || "").trim();
@@ -3386,9 +3579,14 @@ window.submitMultichannelLead = async function () {
   const productId = Number(document.getElementById("mc-product")?.value || 1);
   const modality = document.getElementById("mc-modality")?.value || "RENTA_MRR";
   const leadTemperature = document.getElementById("mc-temperature")?.value || "HOT";
+  const initialStage = document.getElementById("mc-stage")?.value || "DISCOVERY";
   const mrrUsd = Number(document.getElementById("mc-mrr")?.value || 950);
   const buyoutUsd = Number(document.getElementById("mc-buyout")?.value || 21000);
-  const rawNote = (document.getElementById("mc-note")?.value || "").trim();
+  const rawNote = (
+    document.getElementById("mc-notes")?.value ||
+    document.getElementById("mc-note")?.value ||
+    ""
+  ).trim();
 
   if (!companyName && !rawNote) {
     showToast("⚠️ Ingresa el nombre de la empresa o pega el mensaje del cliente.");
@@ -3409,6 +3607,7 @@ window.submitMultichannelLead = async function () {
       productId,
       modality,
       leadTemperature,
+      initialStage,
       mrrUsd,
       buyoutUsd,
       rawNote,
@@ -3424,7 +3623,7 @@ window.submitMultichannelLead = async function () {
   }
 
   // Clear form fields
-  ["mc-company", "mc-contact", "mc-phone", "mc-email", "mc-note"].forEach((id) => {
+  ["mc-company", "mc-contact", "mc-phone", "mc-email", "mc-note", "mc-notes"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
@@ -3543,6 +3742,12 @@ window.simulateInboundMultichannelLead = async function (channel) {
 
 window.setSalesQueueFilter = function (filter) {
   state.salesQueueFilter = filter || "ALL";
+  ["ALL", "WEB_PAGE", "ANDROID_APP", "WHATSAPP", "HOT", "URGENT"].forEach((k) => {
+    const btn = document.getElementById(`sm-filter-${k}`);
+    if (btn) {
+      btn.className = k === state.salesQueueFilter ? "btn btn-emerald" : "btn";
+    }
+  });
   document.querySelectorAll("[data-sqfilter]").forEach((btn) => {
     const isAct = btn.dataset.sqfilter === state.salesQueueFilter;
     btn.className = isAct ? "btn btn-emerald" : "btn";
@@ -3551,7 +3756,7 @@ window.setSalesQueueFilter = function (filter) {
 };
 
 function renderSalesManagerLeadsView() {
-  // 1. Populate product dropdown in Multichannel creator
+  // 1. Populate product dropdown in Multichannel creator with List Price metadata
   const prodSel = document.getElementById("mc-product");
   if (prodSel && state.products.length > 0) {
     const curVal = prodSel.value;
@@ -3560,16 +3765,15 @@ function renderSalesManagerLeadsView() {
         (p) =>
           `<option value="${p.id}" data-mrr="${p.monthly_rent_mrr_usd || 950}" data-buyout="${
             p.buyout_price_usd || 21000
-          }">${p.name} (${p.brand})</option>`
+          }" data-setup="${p.setup_fee_usd || 2200}">${p.name} — Renta ${fmtUsd(
+            p.monthly_rent_mrr_usd
+          )}/m | Venta ${fmtUsd(p.buyout_price_usd)}</option>`
       )
       .join("");
     if (curVal && Array.from(prodSel.options).some((o) => o.value === curVal)) {
       prodSel.value = curVal;
     }
-    const mrrEl = document.getElementById("mc-mrr");
-    if (mrrEl && !mrrEl.value) {
-      window.syncMultichannelProductDefaults();
-    }
+    window.syncMultichannelProductDefaults();
   }
 
   // 2. Compute Sales Manager KPIs
@@ -3588,46 +3792,41 @@ function renderSalesManagerLeadsView() {
       d.stage === "SIMULACION_FINACTIONABLE"
   );
 
-  const hotClosingDeals = openDeals.filter(
-    (d) => d.stage === "NEGOCIACION" || d.stage === "SIMULACION_FINACTIONABLE" || Number(d.probability || 0) >= 65
-  );
-  const hotClosingValue = hotClosingDeals.reduce(
+  const openPipelineValue = openDeals.reduce(
     (acc, d) =>
       acc + (d.modality === "VENTA_CAPEX" ? Number(d.buyout_dynamic_usd || 0) : Number(d.ltv_24m_usd || 0)),
     0
   );
+  const openMrrTotal = openDeals.reduce((acc, d) => acc + Number(d.mrr_usd || 0), 0);
   const closedWonValue = closedDeals.reduce(
     (acc, d) =>
       acc + (d.modality === "VENTA_CAPEX" ? Number(d.buyout_dynamic_usd || 0) : Number(d.ltv_24m_usd || 0)),
     0
   );
 
-  const elMulti = document.getElementById("sm-kpi-multichannel");
-  const elMultiSub = document.getElementById("sm-kpi-multichannel-sub");
+  const elMulti = document.getElementById("sm-kpi-total-leads") || document.getElementById("sm-kpi-multichannel");
+  const elMultiSub =
+    document.getElementById("sm-kpi-channels-breakdown") || document.getElementById("sm-kpi-multichannel-sub");
   if (elMulti) elMulti.textContent = `${allDeals.length} Leads`;
   if (elMultiSub) {
     elMultiSub.innerHTML = `🌐 Web: <strong>${webCount}</strong> · 📱 Android: <strong>${androidCount}</strong> · 💬 WhatsApp: <strong>${waCount}</strong>`;
   }
 
-  const elUrg = document.getElementById("sm-kpi-urgent");
-  const elUrgSub = document.getElementById("sm-kpi-urgent-sub");
-  if (elUrg) elUrg.textContent = `${urgentDeals.length} Prioritarios`;
-  if (elUrgSub) {
-    elUrgSub.textContent = `${openDeals.length} oportunidades abiertas en seguimiento activo`;
+  const elUrg = document.getElementById("sm-kpi-hot-leads") || document.getElementById("sm-kpi-urgent");
+  if (elUrg) elUrg.textContent = `${urgentDeals.length} Calientes`;
+
+  const elOpenVal = document.getElementById("sm-kpi-open-value") || document.getElementById("sm-kpi-hot-value");
+  const elOpenSub = document.getElementById("sm-kpi-open-mrr") || document.getElementById("sm-kpi-hot-sub");
+  if (elOpenVal) elOpenVal.textContent = fmtUsd(openPipelineValue);
+  if (elOpenSub) {
+    elOpenSub.textContent = `MRR mensual en juego: ${fmtUsd(openMrrTotal)}/mes (${openDeals.length} abiertas)`;
   }
 
-  const elHotVal = document.getElementById("sm-kpi-hot-value");
-  const elHotSub = document.getElementById("sm-kpi-hot-sub");
-  if (elHotVal) elHotVal.textContent = fmtUsd(hotClosingValue);
-  if (elHotSub) {
-    elHotSub.textContent = `${hotClosingDeals.length} tratos listos para Cierre Rápido 1-Clic`;
-  }
-
-  const elWon = document.getElementById("sm-kpi-closed-won");
-  const elWonSub = document.getElementById("sm-kpi-closed-sub");
-  if (elWon) elWon.textContent = `${closedDeals.length} Ganados (${fmtUsd(closedWonValue)})`;
+  const elWon = document.getElementById("sm-kpi-won-count") || document.getElementById("sm-kpi-closed-won");
+  const elWonSub = document.getElementById("sm-kpi-won-value") || document.getElementById("sm-kpi-closed-sub");
+  if (elWon) elWon.textContent = `${closedDeals.length} Ganados`;
   if (elWonSub) {
-    elWonSub.textContent = `Cierres efectivos acumulados en PostgreSQL`;
+    elWonSub.textContent = `Revenue cerrado acumulado: ${fmtUsd(closedWonValue)}`;
   }
 
   // 3. Filter and sort the Follow-up & Fast-Close Queue
@@ -3638,7 +3837,7 @@ function renderSalesManagerLeadsView() {
   const f = state.salesQueueFilter || "ALL";
   if (f === "OPEN_ONLY") {
     list = list.filter((d) => d.stage !== "CERRADO_GANADO");
-  } else if (f === "URGENT") {
+  } else if (f === "URGENT" || f === "HOT") {
     list = list.filter(
       (d) =>
         d.stage !== "CERRADO_GANADO" &&
