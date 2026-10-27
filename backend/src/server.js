@@ -100,27 +100,31 @@ function computeFinActionableEconomics({
 const RBAC_ROLES_META = {
   SUPER_ADMIN: {
     label: "Administrador General (C-Level / Founder)",
-    permissions: "Control total: CRUD Usuarios, Catálogo IP, Kanban, Deal Studio, Modo What-If CEO y Servidor MCP",
+    permissions: "Control total: Todas las pantallas, segmentación global, CRUD Usuarios, Catálogo IP, Deal Studio y Servidor MCP",
+  },
+  SALES_EXECUTIVE: {
+    label: "Sales Manager B2B (Leads Multicanal & Fast-Close)",
+    permissions: "Pantallas comerciales enfocadas: Captación de Leads Multicanal (Página Web, Android App, WhatsApp), Seguimiento Activo, Pipeline Kanban y Cierre Rápido 1-Clic",
+  },
+  SALES_MANAGER: {
+    label: "Sales Manager B2B (Leads Multicanal & Fast-Close)",
+    permissions: "Pantallas comerciales enfocadas: Captación de Leads Multicanal (Página Web, Android App, WhatsApp), Seguimiento Activo, Pipeline Kanban y Cierre Rápido 1-Clic",
   },
   FINANCE_STRATEGIST: {
     label: "Director Financiero (FinActionable Strategist)",
-    permissions: "Autoridad sobre Simulador Venta vs. Renta, aprobación de precios Buyout/MRR, márgenes cloud y LTV",
-  },
-  SALES_EXECUTIVE: {
-    label: "Ejecutivo Comercial B2B (Account Executive)",
-    permissions: "Operación de Pipeline Kanban (Drag & Drop), Ingesta Zero-Admin (Ctrl+K), Smart Grid y cierre de cuentas",
+    permissions: "Pantallas financieras: Command Center Financiero, FinActionable Deal Studio (Simulador 36m), Catálogo IP y aprobación de márgenes en Negociación",
   },
   SOLUTIONS_ARCHITECT: {
     label: "Arquitecto de Soluciones IA & Cloud",
-    permissions: "Validación de Demos Técnicas, arquitectura de activos en Catálogo IP y consola de herramientas MCP",
+    permissions: "Pantallas técnicas: Tablero de Demos Técnicas, Catálogo de Activos IP / Stack Cloud y Consola del Servidor MCP",
   },
   PARTNER_MANAGER: {
     label: "Director de Alianzas & Canales White-Label",
-    permissions: "Comercialización de licencias White-Label, gestión de partners B2B y cuentas corporativas",
+    permissions: "Pantallas de alianzas: Captación de Partners Multicanal, Pipeline White-Label, Clientes B2B y consulta del Catálogo IP",
   },
   AUDITOR_VIEWER: {
     label: "Auditor / Junta Directiva & Inversionistas",
-    permissions: "Acceso de supervisión a métricas MRR/ARR, trazabilidad inmutable de etapas y curvas financieras",
+    permissions: "Pantallas de supervisión en Solo Lectura: Command Center Ejecutivo, Curvas Financieras y Auditoría de Etapas",
   },
 };
 
@@ -168,8 +172,33 @@ async function ensureAuthAndKanbanSchema() {
       ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_justification TEXT DEFAULT 'Oportunidad inicial calificada por comité comercial.';
 
       ALTER TABLE accounts ADD COLUMN IF NOT EXISTS owner_user_id INT REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE accounts ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50) DEFAULT '+57 310 482 9104';
+      ALTER TABLE accounts ADD COLUMN IF NOT EXISTS source_channel VARCHAR(40) DEFAULT 'WHATSAPP';
+
       ALTER TABLE deals ADD COLUMN IF NOT EXISTS responsible_user_id INT REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(50) DEFAULT '+57 310 482 9104';
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS lead_temperature VARCHAR(20) DEFAULT 'HOT';
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS followup_count INT DEFAULT 1;
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_followup_at TIMESTAMPTZ DEFAULT NOW();
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS next_followup_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '3 hours');
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS last_followup_note TEXT;
+      ALTER TABLE deals ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+
       ALTER TABLE deal_stage_history ADD COLUMN IF NOT EXISTS responsible_user_id INT REFERENCES users(id) ON DELETE SET NULL;
+
+      CREATE TABLE IF NOT EXISTS deal_followups (
+        id SERIAL PRIMARY KEY,
+        deal_id INT REFERENCES deals(id) ON DELETE CASCADE,
+        account_id INT REFERENCES accounts(id) ON DELETE CASCADE,
+        channel VARCHAR(40) NOT NULL DEFAULT 'WHATSAPP',
+        action_type VARCHAR(60) NOT NULL DEFAULT 'FOLLOWUP_TOUCH',
+        note TEXT NOT NULL,
+        next_action TEXT,
+        next_followup_at TIMESTAMPTZ,
+        user_id INT REFERENCES users(id) ON DELETE SET NULL,
+        user_name VARCHAR(120) DEFAULT 'Sales Manager',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
 
       CREATE TABLE IF NOT EXISTS crm_attachments (
         id SERIAL PRIMARY KEY,
@@ -201,6 +230,18 @@ async function ensureAuthAndKanbanSchema() {
         RBAC_ROLES_META.SUPER_ADMIN.permissions,
       ],
       [
+        "camila",
+        "Camila Herrera",
+        "camila@finanactionable.co",
+        "SALES_EXECUTIVE",
+        "Sales Manager B2B (Leads Multicanal & Fast-Close)",
+        "projectsfactory.io & finanactionable.co",
+        "CH",
+        "nexus2026",
+        "ACTIVO",
+        RBAC_ROLES_META.SALES_EXECUTIVE.permissions,
+      ],
+      [
         "valeria",
         "Valeria Mendoza",
         "valeria@finanactionable.co",
@@ -223,18 +264,6 @@ async function ensureAuthAndKanbanSchema() {
         "nexus2026",
         "ACTIVO",
         RBAC_ROLES_META.SOLUTIONS_ARCHITECT.permissions,
-      ],
-      [
-        "camila",
-        "Camila Herrera",
-        "camila@finanactionable.co",
-        "SALES_EXECUTIVE",
-        "Enterprise Account Executive B2B",
-        "finanactionable.co",
-        "CH",
-        "nexus2026",
-        "ACTIVO",
-        RBAC_ROLES_META.SALES_EXECUTIVE.permissions,
       ],
       [
         "andres",
@@ -341,7 +370,51 @@ async function ensureAuthAndKanbanSchema() {
       }
     }
 
-    console.log("[NexusPF-CRM] Enterprise RBAC Auth, Kanban Audit & Attachments Schema verified.");
+    // Ensure multichannel metadata (WEB_PAGE, ANDROID_APP, WHATSAPP) and phone numbers exist on accounts & deals
+    await pool.query(`
+      UPDATE deals SET source_channel = 'WHATSAPP', lead_temperature = 'HOT', contact_phone = '+57 314 890 1122',
+        last_followup_note = 'Cliente escribió por WhatsApp pidiendo enlace de propuesta definitiva para firma esta semana.'
+      WHERE id % 3 = 1 AND (source_channel IS NULL OR source_channel NOT IN ('WEB_PAGE', 'ANDROID_APP', 'WHATSAPP'));
+
+      UPDATE deals SET source_channel = 'WEB_PAGE', lead_temperature = 'HOT', contact_phone = '+52 55 4190 8821',
+        last_followup_note = 'Lead capturado desde formulario de cotización en página web projectsfactory.io / finanactionable.co.'
+      WHERE id % 3 = 2 AND (source_channel IS NULL OR source_channel NOT IN ('WEB_PAGE', 'ANDROID_APP', 'WHATSAPP'));
+
+      UPDATE deals SET source_channel = 'ANDROID_APP', lead_temperature = 'WARM', contact_phone = '+57 310 642 7730',
+        last_followup_note = 'Registrado desde Android App móvil en visita ejecutiva con nota de voz.'
+      WHERE id % 3 = 0 AND (source_channel IS NULL OR source_channel NOT IN ('WEB_PAGE', 'ANDROID_APP', 'WHATSAPP'));
+
+      UPDATE accounts SET source_channel = 'WHATSAPP', contact_phone = '+57 314 890 1122' WHERE id % 3 = 1 AND contact_phone IS NULL;
+      UPDATE accounts SET source_channel = 'WEB_PAGE', contact_phone = '+52 55 4190 8821' WHERE id % 3 = 2 AND contact_phone IS NULL;
+      UPDATE accounts SET source_channel = 'ANDROID_APP', contact_phone = '+57 310 642 7730' WHERE id % 3 = 0 AND contact_phone IS NULL;
+    `);
+
+    const followupsCount = await pool.query("SELECT COUNT(*)::int AS cnt FROM deal_followups");
+    if (followupsCount.rows[0].cnt === 0) {
+      const dealsForFollowup = await pool.query("SELECT id, account_id, source_channel, next_action, owner_name, responsible_user_id FROM deals ORDER BY id ASC");
+      for (const d of dealsForFollowup.rows) {
+        const ch = ["WEB_PAGE", "ANDROID_APP", "WHATSAPP"].includes(d.source_channel) ? d.source_channel : "WHATSAPP";
+        await pool.query(
+          `INSERT INTO deal_followups (deal_id, account_id, channel, action_type, note, next_action, next_followup_at, user_id, user_name)
+           VALUES ($1, $2, $3, 'LEAD_CAPTURED', $4, $5, NOW() + INTERVAL '2 hours', $6, $7)`,
+          [
+            d.id,
+            d.account_id || 1,
+            ch,
+            ch === "WHATSAPP"
+              ? "Conversación iniciada por WhatsApp Business: decisor confirmó interés y solicitó propuesta ejecutiva."
+              : ch === "ANDROID_APP"
+              ? "Lead registrado en campo desde Android App por Sales Manager con requerimientos validados."
+              : "Formulario recibido desde Página Web con simulación preliminar Venta vs Renta.",
+            d.next_action || "Enviar link de cierre rápido por WhatsApp",
+            d.responsible_user_id || 1,
+            d.owner_name || "Camila Herrera",
+          ]
+        );
+      }
+    }
+
+    console.log("[NexusPF-CRM] Enterprise RBAC Auth, Multichannel Sales Manager & Attachments Schema verified.");
   } catch (err) {
     console.error("[NexusPF-CRM] Schema migration notice:", err.message);
   }
@@ -795,7 +868,7 @@ app.get("/api/dashboard", async (req, res) => {
     const segCountry = req.query.segCountry && req.query.segCountry !== "ALL" ? String(req.query.segCountry) : null;
     const segStage = req.query.segStage && req.query.segStage !== "ALL" ? String(req.query.segStage) : null;
 
-    const [productsRes, accountsRes, dealsRes, logsRes, usersRes, histRes] = await Promise.all([
+    const [productsRes, accountsRes, dealsRes, logsRes, usersRes, histRes, followupsRes] = await Promise.all([
       pool.query("SELECT * FROM digital_products ORDER BY id ASC"),
       pool.query(`
         SELECT a.*, u.name AS owner_user_name, u.email AS owner_user_email, u.role_code AS owner_role_code
@@ -804,7 +877,9 @@ app.get("/api/dashboard", async (req, res) => {
         ORDER BY a.id ASC
       `),
       pool.query(`
-        SELECT d.*, a.company_name, a.domain, a.industry, a.country, a.contact_name, a.contact_role,
+        SELECT d.*,
+               a.company_name, a.domain, a.industry, a.country, a.contact_name, a.contact_role, a.contact_email,
+               COALESCE(d.contact_phone, a.contact_phone, '+57 314 890 1122') AS contact_phone,
                p.name AS product_name, p.code AS product_code, p.category AS product_category,
                u.name AS responsible_user_name, u.role_code AS responsible_role_code
         FROM deals d
@@ -818,6 +893,7 @@ app.get("/api/dashboard", async (req, res) => {
         "SELECT id, username, name, email, role_code, role, brand_focus, avatar_initials, status, permissions_summary, created_at FROM users ORDER BY id ASC"
       ),
       pool.query("SELECT * FROM deal_stage_history ORDER BY transition_date DESC, id DESC LIMIT 120"),
+      pool.query("SELECT * FROM deal_followups ORDER BY created_at DESC, id DESC LIMIT 150"),
     ]);
 
     const allProducts = productsRes.rows;
@@ -929,6 +1005,21 @@ app.get("/api/dashboard", async (req, res) => {
 
     const visibleDealIds = new Set(scopedDeals.map((d) => Number(d.id)));
     const scopedHistory = histRes.rows.filter((h) => visibleDealIds.has(Number(h.deal_id)));
+    const scopedFollowups = (followupsRes?.rows || []).filter((f) => visibleDealIds.has(Number(f.deal_id)));
+
+    const leadsByChannel = {
+      WEB_PAGE: scopedDeals.filter((d) => String(d.source_channel || "").toUpperCase().includes("WEB")).length,
+      ANDROID_APP: scopedDeals.filter((d) => String(d.source_channel || "").toUpperCase().includes("ANDROID")).length,
+      WHATSAPP: scopedDeals.filter(
+        (d) =>
+          String(d.source_channel || "").toUpperCase().includes("WHATSAPP") ||
+          (!String(d.source_channel || "").toUpperCase().includes("WEB") &&
+            !String(d.source_channel || "").toUpperCase().includes("ANDROID"))
+      ).length,
+    };
+
+    const openDeals = scopedDeals.filter((d) => d.stage !== "CERRADO_GANADO");
+    const closedWonDeals = scopedDeals.filter((d) => d.stage === "CERRADO_GANADO");
 
     res.json({
       kpis: {
@@ -941,18 +1032,499 @@ app.get("/api/dashboard", async (req, res) => {
         enrichedAccountsCount: scopedAccounts.filter((a) => a.ai_fit_score !== null).length,
         totalAccountsCount: scopedAccounts.length,
         totalDealsCount: scopedDeals.length,
+        openDealsCount: openDeals.length,
+        closedWonCount: closedWonDeals.length,
+        leadsByChannel,
         isGlobalView: isUnfilteredGlobal,
       },
+      rolesMeta: RBAC_ROLES_META,
       availableCountries,
       products: allProducts,
       accounts: scopedAccounts,
       deals: scopedDeals,
       users: usersRes.rows,
       stageHistory: scopedHistory,
+      followups: scopedFollowups,
       activityLogs: logsRes.rows,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 2.5 Sales Manager Cockpit: Multichannel Lead Creation (Web, Android App, WhatsApp),
+//     1-Click Opportunity Follow-Up & Express Fast-Close
+// ---------------------------------------------------------------------------
+app.post("/api/leads/multichannel", async (req, res) => {
+  try {
+    const b = req.body || {};
+    const channel = b.sourceChannel || b.channel || "WHATSAPP";
+    const company_name = b.companyName || b.company_name || "";
+    const contact_name = b.contactName || b.contact_name || "";
+    const contact_role = b.contactRole || b.contact_role || "Director / Decisor Clave";
+    const contact_phone = b.contactPhone || b.contact_phone || "+57 314 890 1122";
+    const contact_email = b.contactEmail || b.contact_email || "";
+    const country = b.country || "Colombia / LATAM";
+    const industry = b.industry || "Finanzas & Operaciones B2B";
+    const product_id = b.productId || b.product_id || 1;
+    const modality = b.modality || "RENTA_MRR";
+    const mrr_usd = b.mrrUsd || b.mrr_usd;
+    const setup_fee_usd = b.setupFeeUsd || b.setup_fee_usd;
+    const buyout_usd = b.buyoutUsd || b.buyout_usd;
+    const lead_temperature = b.leadTemperature || b.lead_temperature || "HOT";
+    const initial_stage = b.initialStage || b.initial_stage || "DISCOVERY";
+    const notes = b.rawNote || b.notes || "";
+    const next_action = b.nextAction || b.next_action || "";
+    const ownerUserId = b.ownerUserId || 2;
+    const ownerName = b.ownerName || "Camila Herrera";
+    const ownerEmail = b.ownerEmail || "camila@finanactionable.co";
+    const ownerRole = b.ownerRole || "Sales Manager B2B";
+
+    const cleanChannel = ["WEB_PAGE", "ANDROID_APP", "WHATSAPP"].includes(String(channel).toUpperCase())
+      ? String(channel).toUpperCase()
+      : "WHATSAPP";
+
+    // Allow either structured inputs OR automatic NLP extraction from notes/message
+    let finalCompany = String(company_name || "").trim();
+    let finalContact = String(contact_name || "").trim();
+    let finalCountry = String(country || "Colombia / LATAM").trim();
+
+    if ((!finalCompany || !finalContact) && notes && String(notes).trim()) {
+      const extracted = extractZeroAdminEntities(notes);
+      if (!finalCompany) finalCompany = extracted.companyName;
+      if (!finalContact) finalContact = extracted.contactName;
+      if (extracted.country) finalCountry = extracted.country;
+    }
+
+    if (!finalCompany) finalCompany = "Empresa Prospecto Multicanal";
+    if (!finalContact) finalContact = "Decisor Comercial";
+
+    const cleanDomain =
+      finalCompany
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "")
+        .slice(0, 18) + ".co";
+
+    const cleanEmail =
+      contact_email && String(contact_email).trim()
+        ? String(contact_email).trim().toLowerCase()
+        : `${finalContact.split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, "") || "contacto"}@${cleanDomain}`;
+
+    const prodRes = await pool.query("SELECT * FROM digital_products WHERE id = $1", [Number(product_id) || 1]);
+    const prod = prodRes.rows[0] || {
+      id: 1,
+      name: "FinActionable AI-CFO & Cashflow Intelligence",
+      brand: "finanactionable.co",
+      buyout_price_usd: 22000,
+      setup_fee_usd: 2500,
+      monthly_rent_mrr_usd: 950,
+      infra_cost_monthly_usd: 70,
+      eng_hours_base: 120,
+    };
+
+    const finalMrr = Number(mrr_usd) || Number(prod.monthly_rent_mrr_usd) || 950;
+    const finalSetup = Number(setup_fee_usd) || Number(prod.setup_fee_usd) || 2500;
+    const finalBuyout = Number(buyout_usd) || Number(prod.buyout_price_usd) || 22000;
+    const infra = Number(prod.infra_cost_monthly_usd) || 70;
+
+    const econ = computeFinActionableEconomics({
+      buyoutPrice: finalBuyout,
+      setupFee: finalSetup,
+      monthlyRentMrr: finalMrr,
+      infraCostMonthly: infra,
+      engHours: Number(prod.eng_hours_base) || 120,
+    });
+
+    const channelLabels = {
+      WEB_PAGE: "Página Web (Formulario / Cotizador Online)",
+      ANDROID_APP: "Android App (Captura Móvil en Campo)",
+      WHATSAPP: "WhatsApp Business (Chat Directo)",
+    };
+
+    const aiInsight = `Lead captado vía ${channelLabels[cleanChannel]} (${finalCountry}). Punto de equilibrio en Mes ${econ.breakevenMonths} con LTV 24m de $${econ.ltv24mRent.toLocaleString("en-US")}. Priorizar contacto inmediato para cierre rápido.`;
+    const aiIcebreaker = `Hola ${finalContact.split(" ")[0]}, recibimos tu solicitud por ${channelLabels[cleanChannel]} para ${finalCompany}; te comparto la propuesta lista de ${prod.name} para activar esta misma semana.`;
+
+    // 1. Upsert or Create Account
+    const existingAcc = await pool.query(
+      "SELECT * FROM accounts WHERE LOWER(company_name) = LOWER($1) LIMIT 1",
+      [finalCompany]
+    );
+    let accountRow;
+    if (existingAcc.rows.length > 0) {
+      const upd = await pool.query(
+        `UPDATE accounts
+         SET contact_name = $1,
+             contact_role = $2,
+             contact_email = $3,
+             contact_phone = $4,
+             country = $5,
+             source_channel = $6,
+             owner_user_id = $7,
+             ai_fit_score = 96,
+             ai_recommended_product = $8,
+             ai_recommended_modality = $9,
+             ai_finactionable_insight = $10,
+             ai_personalized_icebreaker = $11,
+             ai_enriched_at = NOW()
+         WHERE id = $12
+         RETURNING *`,
+        [
+          finalContact,
+          contact_role,
+          cleanEmail,
+          contact_phone,
+          finalCountry,
+          cleanChannel,
+          Number(ownerUserId) || 1,
+          prod.name,
+          modality === "VENTA_CAPEX" ? `VENTA_CAPEX ($${finalBuyout})` : `RENTA_MRR ($${finalMrr}/mes)`,
+          aiInsight,
+          aiIcebreaker,
+          existingAcc.rows[0].id,
+        ]
+      );
+      accountRow = upd.rows[0];
+    } else {
+      const ins = await pool.query(
+        `INSERT INTO accounts
+          (company_name, domain, industry, country, employee_range, contact_name, contact_role, contact_email, contact_phone, source_channel, owner_user_id, ai_fit_score, ai_recommended_product, ai_recommended_modality, ai_finactionable_insight, ai_personalized_icebreaker, ai_enriched_at)
+         VALUES ($1,$2,$3,$4,'50-200',$5,$6,$7,$8,$9,$10,96,$11,$12,$13,$14,NOW())
+         RETURNING *`,
+        [
+          finalCompany,
+          cleanDomain,
+          industry,
+          finalCountry,
+          finalContact,
+          contact_role,
+          cleanEmail,
+          contact_phone,
+          cleanChannel,
+          Number(ownerUserId) || 1,
+          prod.name,
+          modality === "VENTA_CAPEX" ? `VENTA_CAPEX ($${finalBuyout})` : `RENTA_MRR ($${finalMrr}/mes)`,
+          aiInsight,
+          aiIcebreaker,
+        ]
+      );
+      accountRow = ins.rows[0];
+    }
+
+    // 2. Create Opportunity (Deal) assigned to Sales Manager
+    const dealTitle = `${prod.name} — ${finalCompany}`;
+    const effectiveNextAction =
+      next_action && String(next_action).trim()
+        ? String(next_action).trim()
+        : `Contactar por WhatsApp (${contact_phone}) a ${finalContact} y enviar link de cierre rápido`;
+    const effectiveNote =
+      notes && String(notes).trim()
+        ? String(notes).trim()
+        : `Lead multicanal ingresado desde ${channelLabels[cleanChannel]}. Interés en ${prod.name} (${modality}).`;
+
+    const probByTemp = lead_temperature === "HOT" ? 72 : lead_temperature === "WARM" ? 55 : 40;
+
+    const dealIns = await pool.query(
+      `INSERT INTO deals
+        (title, account_id, product_id, responsible_user_id, brand, modality, stage, probability,
+         buyout_dynamic_usd, setup_fee_usd, mrr_usd, contract_months, infra_cost_monthly_usd,
+         cac_estimated_usd, breakeven_months, ltv_24m_usd, gross_margin_pct,
+         next_action, source_channel, owner_name, last_changed_by, last_changed_role,
+         last_stage_change_at, last_justification, contact_phone, lead_temperature,
+         followup_count, last_followup_at, next_followup_at, last_followup_note)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,24,$12,850,$13,$14,$15,$16,$17,$18,$18,$19,NOW(),$20,$21,$22,1,NOW(),NOW() + INTERVAL '2 hours',$20)
+       RETURNING *`,
+      [
+        dealTitle,
+        accountRow.id,
+        prod.id,
+        Number(ownerUserId) || 1,
+        prod.brand,
+        modality,
+        initial_stage,
+        probByTemp,
+        finalBuyout,
+        finalSetup,
+        finalMrr,
+        infra,
+        econ.breakevenMonths,
+        econ.ltv24mRent,
+        econ.grossMarginRentPct,
+        effectiveNextAction,
+        cleanChannel,
+        ownerName,
+        ownerRole,
+        effectiveNote,
+        contact_phone,
+        lead_temperature,
+      ]
+    );
+    const dealRow = dealIns.rows[0];
+
+    // 3. Record Initial Follow-up & Stage History
+    await pool.query(
+      `INSERT INTO deal_followups (deal_id, account_id, channel, action_type, note, next_action, next_followup_at, user_id, user_name)
+       VALUES ($1,$2,$3,'MULTICHANNEL_LEAD_CREATED',$4,$5,NOW() + INTERVAL '2 hours',$6,$7)`,
+      [dealRow.id, accountRow.id, cleanChannel, effectiveNote, effectiveNextAction, Number(ownerUserId) || 1, ownerName]
+    );
+
+    await pool.query(
+      `INSERT INTO deal_stage_history
+        (deal_id, from_stage, to_stage, responsible_user_id, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
+       VALUES ($1,$2,$2,$3,$4,$5,$6,NOW(),$7,$8,96)`,
+      [
+        dealRow.id,
+        initial_stage,
+        Number(ownerUserId) || 1,
+        ownerName,
+        ownerEmail,
+        ownerRole,
+        `[${cleanChannel}] ${effectiveNote}`,
+        effectiveNextAction,
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('MULTICHANNEL_LEAD_INBOUND', $1, $2)`,
+      [
+        `[${cleanChannel}] Nuevo Lead para ${ownerName}: "${finalCompany}" (${finalContact} · ${contact_phone}) — ${prod.name}`,
+        JSON.stringify({ channel: cleanChannel, account: accountRow, deal: dealRow }),
+      ]
+    );
+
+    res.status(201).json({
+      ok: true,
+      channel: cleanChannel,
+      account: accountRow,
+      deal: dealRow,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Log 1-Click or Custom Follow-Up on an Opportunity
+app.post("/api/deals/:id/followup", async (req, res) => {
+  try {
+    const dealId = Number(req.params.id);
+    const b = req.body || {};
+    const channel = b.channel || "WHATSAPP";
+    const action_type = b.actionType || b.action_type || "FOLLOWUP_TOUCH";
+    const note = b.note || "Seguimiento comercial realizado con el decisor.";
+    const next_action = b.nextAction || b.next_action || "Confirmar firma de propuesta y fecha de inicio";
+    const lead_temperature = b.leadTemperature || b.lead_temperature;
+    const advance_stage = b.advanceStage !== undefined ? b.advanceStage : b.advance_stage;
+    const next_followup_hours = b.nextFollowupHours || b.next_followup_hours || 24;
+    const userId = b.responsibleUserId || b.userId || 2;
+    const userName = b.responsibleName || b.userName || "Camila Herrera";
+    const userEmail = b.responsibleEmail || b.userEmail || "camila@finanactionable.co";
+    const userRole = b.responsibleRole || b.userRole || "Sales Manager B2B";
+
+    const existingRes = await pool.query("SELECT * FROM deals WHERE id = $1", [dealId]);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ error: "Oportunidad no encontrada." });
+    }
+    const deal = existingRes.rows[0];
+
+    const stageOrder = ["DISCOVERY", "DEMO_TECNICA", "SIMULACION_FINACTIONABLE", "NEGOCIACION", "CERRADO_GANADO"];
+    let nextStage = deal.stage;
+    if (advance_stage === true || advance_stage === "true") {
+      const idx = stageOrder.indexOf(deal.stage);
+      if (idx >= 0 && idx < stageOrder.length - 2) {
+        nextStage = stageOrder[idx + 1];
+      }
+    } else if (typeof advance_stage === "string" && stageOrder.includes(advance_stage.trim())) {
+      nextStage = advance_stage.trim();
+    }
+    const nextTemp = lead_temperature || deal.lead_temperature || "HOT";
+    const bumpedProb = Math.min(98, Number(deal.probability || 50) + 12);
+    const hours = Math.max(1, Number(next_followup_hours) || 24);
+
+    const updDeal = await pool.query(
+      `UPDATE deals
+       SET followup_count = COALESCE(followup_count, 0) + 1,
+           last_followup_at = NOW(),
+           next_followup_at = NOW() + ($1 || ' hours')::interval,
+           last_followup_note = $2,
+           next_action = COALESCE($3, next_action),
+           lead_temperature = $4,
+           stage = $5,
+           probability = CASE WHEN stage = 'CERRADO_GANADO' THEN 100 ELSE $6 END,
+           last_changed_by = $7,
+           last_changed_role = $8,
+           updated_at = NOW()
+       WHERE id = $9
+       RETURNING *`,
+      [String(hours), note, next_action, nextTemp, nextStage, bumpedProb, userName, userRole, dealId]
+    );
+
+    const fIns = await pool.query(
+      `INSERT INTO deal_followups (deal_id, account_id, channel, action_type, note, next_action, next_followup_at, user_id, user_name)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW() + ($7 || ' hours')::interval,$8,$9)
+       RETURNING *`,
+      [dealId, deal.account_id, channel, action_type, note, next_action, String(hours), Number(userId) || 1, userName]
+    );
+
+    if (nextStage !== deal.stage) {
+      await pool.query(
+        `INSERT INTO deal_stage_history
+          (deal_id, from_stage, to_stage, responsible_user_id, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8,$9,95)`,
+        [dealId, deal.stage, nextStage, Number(userId) || 1, userName, userEmail, userRole, note, next_action]
+      );
+    }
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('SALES_FOLLOWUP_LOGGED', $1, $2)`,
+      [
+        `[${userName} · ${channel}] Seguimiento #${updDeal.rows[0].followup_count} en "${deal.title}": ${note}`,
+        JSON.stringify({ dealId, followup: fIns.rows[0] }),
+      ]
+    );
+
+    res.json({
+      ok: true,
+      deal: updDeal.rows[0],
+      followup: fIns.rows[0],
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Express 1-Click Fast-Close ("Cerrar Ganado Ahora") for Sales Managers
+app.post("/api/deals/:id/fast-close", async (req, res) => {
+  try {
+    const dealId = Number(req.params.id);
+    const b = req.body || {};
+    const modality = b.modality;
+    const final_mrr_usd = b.finalMrrUsd !== undefined ? b.finalMrrUsd : b.final_mrr_usd;
+    const final_setup_usd = b.finalSetupUsd !== undefined ? b.finalSetupUsd : b.final_setup_usd;
+    const final_buyout_usd = b.finalBuyoutUsd !== undefined ? b.finalBuyoutUsd : b.final_buyout_usd;
+    const closing_channel = b.closingChannel || b.closing_channel || "WHATSAPP";
+    const closing_note =
+      b.closingNote ||
+      b.closing_note ||
+      "Cierre express confirmado por el cliente. Propuesta aceptada y orden de activación emitida.";
+    const userId = b.responsibleUserId || b.userId || 2;
+    const userName = b.responsibleName || b.userName || "Camila Herrera";
+    const userEmail = b.responsibleEmail || b.userEmail || "camila@finanactionable.co";
+    const userRole = b.responsibleRole || b.userRole || "Sales Manager B2B";
+
+    const existingRes = await pool.query("SELECT * FROM deals WHERE id = $1", [dealId]);
+    if (existingRes.rows.length === 0) {
+      return res.status(404).json({ error: "Oportunidad no encontrada." });
+    }
+    const prev = existingRes.rows[0];
+
+    const finalMod = modality || prev.modality || "RENTA_MRR";
+    const finalMrr = final_mrr_usd !== undefined ? Number(final_mrr_usd) : Number(prev.mrr_usd);
+    const finalSetup = final_setup_usd !== undefined ? Number(final_setup_usd) : Number(prev.setup_fee_usd);
+    const finalBuyout = final_buyout_usd !== undefined ? Number(final_buyout_usd) : Number(prev.buyout_dynamic_usd);
+
+    const econ = computeFinActionableEconomics({
+      buyoutPrice: finalBuyout,
+      setupFee: finalSetup,
+      monthlyRentMrr: finalMrr,
+      infraCostMonthly: Number(prev.infra_cost_monthly_usd) || 70,
+    });
+
+    const nextActionClosed = "Kick-off de implementación y activación inmediata de Tenant en Render / Firebase";
+
+    const upd = await pool.query(
+      `UPDATE deals
+       SET stage = 'CERRADO_GANADO',
+           probability = 100,
+           modality = $1,
+           mrr_usd = $2,
+           setup_fee_usd = $3,
+           buyout_dynamic_usd = $4,
+           breakeven_months = $5,
+           ltv_24m_usd = $6,
+           gross_margin_pct = $7,
+           lead_temperature = 'HOT',
+           followup_count = COALESCE(followup_count, 0) + 1,
+           last_followup_at = NOW(),
+           last_followup_note = $8,
+           next_action = $9,
+           last_changed_by = $10,
+           last_changed_role = $11,
+           last_stage_change_at = NOW(),
+           last_justification = $8,
+           closed_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $12
+       RETURNING *`,
+      [
+        finalMod,
+        finalMrr,
+        finalSetup,
+        finalBuyout,
+        econ.breakevenMonths,
+        econ.ltv24mRent,
+        econ.grossMarginRentPct,
+        closing_note,
+        nextActionClosed,
+        userName,
+        userRole,
+        dealId,
+      ]
+    );
+    const closedDeal = upd.rows[0];
+
+    // Increment product active_tenants or sold_buyouts if closing from a non-won stage
+    if (prev.stage !== "CERRADO_GANADO" && closedDeal.product_id) {
+      if (finalMod === "VENTA_CAPEX") {
+        await pool.query("UPDATE digital_products SET sold_buyouts = COALESCE(sold_buyouts, 0) + 1 WHERE id = $1", [
+          closedDeal.product_id,
+        ]);
+      } else {
+        await pool.query("UPDATE digital_products SET active_tenants = COALESCE(active_tenants, 0) + 1 WHERE id = $1", [
+          closedDeal.product_id,
+        ]);
+      }
+    }
+
+    await pool.query(
+      `INSERT INTO deal_stage_history
+        (deal_id, from_stage, to_stage, responsible_user_id, responsible_name, responsible_email, responsible_role, transition_date, justification, next_action, ai_confidence_score)
+       VALUES ($1,$2,'CERRADO_GANADO',$3,$4,$5,$6,NOW(),$7,$8,100)`,
+      [
+        dealId,
+        prev.stage,
+        Number(userId) || 1,
+        userName,
+        userEmail,
+        userRole,
+        `⚡ [CIERRE RÁPIDO · ${closing_channel}] ${closing_note}`,
+        nextActionClosed,
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO deal_followups (deal_id, account_id, channel, action_type, note, next_action, next_followup_at, user_id, user_name)
+       VALUES ($1,$2,$3,'FAST_CLOSE_WON',$4,$5,NOW() + INTERVAL '24 hours',$6,$7)`,
+      [dealId, closedDeal.account_id, closing_channel, closing_note, nextActionClosed, Number(userId) || 1, userName]
+    );
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('DEAL_FAST_CLOSED_WON', $1, $2)`,
+      [
+        `🏆 [${userName}] Cierre Rápido Ganado: "${closedDeal.title}" (${finalMod}: ${
+          finalMod === "VENTA_CAPEX" ? `$${finalBuyout} Buyout` : `$${finalMrr}/mes MRR`
+        })`,
+        JSON.stringify(closedDeal),
+      ]
+    );
+
+    res.json({ ok: true, deal: closedDeal });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 

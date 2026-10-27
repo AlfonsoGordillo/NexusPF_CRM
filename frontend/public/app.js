@@ -18,6 +18,7 @@ const state = {
   users: [],
   rolesMeta: {},
   stageHistory: [],
+  followups: [],
   activityLogs: [],
   availableCountries: [],
   adminSegmentation: {
@@ -29,6 +30,8 @@ const state = {
   },
   kanbanFilter: "ALL",
   kanbanOwnerFilter: "ALL",
+  salesQueueFilter: "ALL",
+  activeMultichannelTab: "WHATSAPP",
   whatIfMode: false,
   realDealsBackup: null,
   draggedDealId: null,
@@ -89,6 +92,7 @@ window.toggleLanguage = function () {
   applyEnvironmentPreferences();
   populateKanbanOwnerFilter();
   renderDashboardView();
+  renderSalesManagerLeadsView();
   renderSmartGridView();
   renderKanbanView();
   renderCatalogView();
@@ -169,6 +173,11 @@ function applyEnvironmentPreferences() {
       title: t("Command Center", "Command Center"),
       tag: "LIVE",
       mobile: t("Inicio", "Home"),
+    },
+    leads: {
+      title: t("Leads Multicanal & Cierre", "Multichannel Leads & Close"),
+      tag: "FAST",
+      mobile: t("Leads", "Leads"),
     },
     smartgrid: {
       title: t("Clientes & Smart Grid", "Accounts & Smart Grid"),
@@ -353,6 +362,7 @@ async function loadDashboard() {
     state.availableCountries = data.availableCountries || [];
     state.rolesMeta = data.rolesMeta || {};
     state.stageHistory = data.stageHistory || [];
+    state.followups = data.followups || [];
     state.activityLogs = data.activityLogs || [];
 
     // Sync currentUser with authoritative DB user record (e.g., if role_code or role was updated)
@@ -378,6 +388,7 @@ async function loadDashboard() {
     populateKanbanOwnerFilter();
     populateNewDealDropdowns();
     renderDashboardView();
+    renderSalesManagerLeadsView();
     renderSmartGridView();
     renderKanbanView();
     renderCatalogView();
@@ -419,16 +430,29 @@ function applyRoleBasedVisibilityAndSegmentationUI() {
   const u = state.currentUser || { id: 1, name: "Alfonso Gordillo", role_code: "SUPER_ADMIN" };
   const roleCode = String(u.role_code || "SUPER_ADMIN").toUpperCase();
 
-  // 1. Allowed Views Matrix per Role
+  // 1. Strict Allowed Views Matrix per Role:
+  //    - SALES_EXECUTIVE / SALES_MANAGER only see their 3 high-velocity Sales screens: Leads Multicanal, Pipeline Kanban & Clientes Smart Grid.
+  //    - Other corporate profiles see the screens tailored to their domain.
   const allowedViewsByRole = {
-    SUPER_ADMIN: ["dashboard", "smartgrid", "kanban", "studio", "catalog", "team", "mcp"],
-    FINANCE_STRATEGIST: ["dashboard", "smartgrid", "kanban", "studio", "catalog"],
-    SOLUTIONS_ARCHITECT: ["dashboard", "smartgrid", "kanban", "catalog", "mcp"],
-    SALES_EXECUTIVE: ["dashboard", "smartgrid", "kanban", "studio", "catalog"],
-    PARTNER_MANAGER: ["dashboard", "smartgrid", "kanban", "studio", "catalog"],
-    AUDITOR_VIEWER: ["dashboard", "kanban", "studio", "catalog"],
+    SUPER_ADMIN: ["dashboard", "leads", "smartgrid", "kanban", "studio", "catalog", "team", "mcp"],
+    SALES_EXECUTIVE: ["leads", "kanban", "smartgrid"],
+    SALES_MANAGER: ["leads", "kanban", "smartgrid"],
+    FINANCE_STRATEGIST: ["dashboard", "studio", "kanban", "catalog"],
+    SOLUTIONS_ARCHITECT: ["dashboard", "kanban", "catalog", "mcp"],
+    PARTNER_MANAGER: ["leads", "kanban", "smartgrid", "catalog"],
+    AUDITOR_VIEWER: ["dashboard", "kanban", "studio"],
+  };
+  const defaultViewByRole = {
+    SUPER_ADMIN: "dashboard",
+    SALES_EXECUTIVE: "leads",
+    SALES_MANAGER: "leads",
+    FINANCE_STRATEGIST: "dashboard",
+    SOLUTIONS_ARCHITECT: "dashboard",
+    PARTNER_MANAGER: "leads",
+    AUDITOR_VIEWER: "dashboard",
   };
   const allowedViews = allowedViewsByRole[roleCode] || allowedViewsByRole.SALES_EXECUTIVE;
+  const fallbackView = defaultViewByRole[roleCode] || allowedViews[0] || "leads";
 
   // Show/hide Sidebar navigation buttons
   document.querySelectorAll(".nav-btn").forEach((btn) => {
@@ -442,12 +466,12 @@ function applyRoleBasedVisibilityAndSegmentationUI() {
     btn.style.display = allowedViews.includes(v) ? "flex" : "none";
   });
 
-  // If currently open view is not allowed for this role, redirect to dashboard
+  // If currently open view is not allowed for this role, redirect to role's primary view
   const activePanel = document.querySelector(".view-panel.active");
   if (activePanel) {
     const currentViewId = activePanel.id.replace("view-", "");
     if (!allowedViews.includes(currentViewId)) {
-      window.switchView("dashboard");
+      window.switchView(fallbackView);
     }
   }
 
@@ -493,13 +517,15 @@ function applyRoleBasedVisibilityAndSegmentationUI() {
     if (roleBanner && roleBannerText) {
       roleBanner.style.display = "flex";
       if (roleCode === "SOLUTIONS_ARCHITECT") {
-        roleBannerText.innerHTML = `🔒 <strong>Tablero Especialista de Arquitectura (${u.name}):</strong> Viendo tus cuentas/oportunidades propias + todas las oportunidades en etapa <strong>2. DEMO TÉCNICA</strong> (<strong>${state.deals.length}</strong> deals · <strong>${state.accounts.length}</strong> clientes).`;
+        roleBannerText.innerHTML = `🔒 <strong>Tablero Especialista de Arquitectura (${u.name}):</strong> Pantallas habilitadas: <strong>Command Center, Kanban, Catálogo IP y Servidor MCP</strong> (${state.deals.length} deals · ${state.accounts.length} clientes).`;
       } else if (roleCode === "FINANCE_STRATEGIST") {
-        roleBannerText.innerHTML = `🔒 <strong>Tablero Especialista Financiero (${u.name}):</strong> Viendo tus cuentas/oportunidades propias + todas las oportunidades en <strong>3. SIMULACIÓN FINACTIONABLE</strong> y <strong>4. NEGOCIACIÓN</strong> (<strong>${state.deals.length}</strong> deals · <strong>${state.accounts.length}</strong> clientes).`;
+        roleBannerText.innerHTML = `🔒 <strong>Tablero Especialista Financiero (${u.name}):</strong> Pantallas habilitadas: <strong>Command Center, FinActionable Studio, Kanban y Catálogo IP</strong> (${state.deals.length} deals · ${state.accounts.length} clientes).`;
       } else if (roleCode === "AUDITOR_VIEWER") {
-        roleBannerText.innerHTML = `👁️ <strong>Modo Auditoría & Junta Directiva (${u.name}):</strong> Supervisión en modo <strong>Solo Lectura</strong> (sin permisos de edición ni borrado).`;
+        roleBannerText.innerHTML = `👁️ <strong>Modo Auditoría & Junta Directiva (${u.name}):</strong> Supervisión en modo <strong>Solo Lectura</strong> (Command Center, Kanban y Studio).`;
+      } else if (roleCode === "PARTNER_MANAGER") {
+        roleBannerText.innerHTML = `🤝 <strong>Tablero de Alianzas & Canales (${u.name}):</strong> Pantallas enfocadas en <strong>Leads Multicanal, Pipeline Kanban, Clientes y Catálogo IP</strong> (${state.deals.length} oportunidades).`;
       } else {
-        roleBannerText.innerHTML = `🔒 <strong>Mi Tablero Personal (${u.name} · ${roleCode}):</strong> Viendo exclusivamente tus <strong>${state.accounts.length} Clientes</strong> y tus <strong>${state.deals.length} Oportunidades Comerciales</strong> asignadas.`;
+        roleBannerText.innerHTML = `⚡ <strong>Cockpit Sales Manager (${u.name} · ${roleCode}):</strong> Pantallas exclusivas de alta velocidad: <strong>Leads Multicanal (🌐 Web · 📱 Android App · 💬 WhatsApp)</strong>, <strong>Pipeline Kanban (Seguimiento & Cierre Rápido)</strong> y <strong>Clientes Smart Grid</strong> (${state.deals.length} oportunidades · ${state.accounts.length} clientes).`;
       }
     }
   }
@@ -1173,6 +1199,7 @@ function renderKanbanView() {
                  ondragend="handleKanbanDragEnd(event)">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; gap:4px; flex-wrap:wrap;">
                 ${modalityBadge(d.modality)}
+                ${getSourceChannelBadge(d.source_channel)}
                 ${getDealRottingBadge(d)}
               </div>
 
@@ -1180,7 +1207,10 @@ function renderKanbanView() {
                 <div class="deal-card-title" style="flex:1;">${d.title}</div>
                 <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan); font-weight:700;">${d.probability}%</span>
               </div>
-              <div class="deal-card-company">${d.company_name || ""} · <span style="color:var(--accent-cyan);">${d.brand}</span></div>
+              <div class="deal-card-company">
+                ${d.company_name || ""} · <span style="color:var(--accent-cyan);">${d.brand}</span>
+                ${d.contact_phone ? `<span style="font-family:var(--font-mono); font-size:10px; color:var(--accent-emerald); margin-left:4px;">📱 ${d.contact_phone}</span>` : ""}
+              </div>
 
               <div class="deal-metrics-box">
                 <div style="display:flex; justify-content:space-between;">
@@ -1193,19 +1223,33 @@ function renderKanbanView() {
                 </div>
                 <div style="display:flex; justify-content:space-between; margin-top:4px; padding-top:4px; border-top:1px dashed var(--border-hairline);">
                   <span>LTV 24m: <strong>${fmtUsd(d.ltv_24m_usd)}</strong></span>
-                  <span>Eq: <strong>${d.breakeven_months}m</strong></span>
+                  <span>🔄 Seg: <strong>${d.followup_count || 1}</strong></span>
                 </div>
               </div>
 
               <div style="font-size:10.5px; color:var(--text-muted); margin-bottom:8px; padding:5px 7px; background:var(--bg-obsidian); border-radius:6px; border-left:2px solid var(--accent-emerald);">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <span><span class="avatar-circle" style="width:16px; height:16px; font-size:8.5px; display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; margin-right:3px;">${ownerInitials}</span><strong>${lastBy}</strong> · ${lastAt}</span>
-                  
                 </div>
-                <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-secondary); margin-top:2px;" title="${(d.last_justification || d.next_action || "").replace(/"/g, "&quot;")}">
-                  ${d.last_justification || d.next_action || "Calificación inicial"}
+                <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text-secondary); margin-top:2px;" title="${(d.last_followup_note || d.last_justification || d.next_action || "").replace(/"/g, "&quot;")}">
+                  ${d.last_followup_note || d.last_justification || d.next_action || "Calificación inicial"}
                 </div>
               </div>
+
+              ${
+                d.stage !== "CERRADO_GANADO"
+                  ? `<div style="display:flex; gap:5px; margin-bottom:6px;">
+                      <button class="btn" style="flex:1; justify-content:center; padding:5px 6px; font-size:10.5px; border-color:rgba(16,185,129,0.45); color:var(--accent-emerald);" onclick="openQuickFollowupModal(${d.id})" title="Registrar seguimiento rápido por WhatsApp / Llamada / App">
+                        📞 +Seguimiento (${d.followup_count || 1})
+                      </button>
+                      <button class="btn btn-primary" style="flex:1; justify-content:center; padding:5px 6px; font-size:10.5px; background:linear-gradient(135deg,#10b981,#059669);" onclick="executeFastCloseDeal(${d.id})" title="Cerrar Ganado en 1 Clic">
+                        🏆 Cerrar Ya
+                      </button>
+                    </div>`
+                  : `<div style="margin-bottom:6px; padding:4px 8px; border-radius:6px; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.4); color:var(--accent-emerald); font-family:var(--font-mono); font-size:10.5px; text-align:center; font-weight:700;">
+                      ✓ CERRADO GANADO · ACTIVO EN PRODUCCIÓN
+                    </div>`
+              }
 
               <div style="display:flex; gap:5px; justify-content:space-between; align-items:center; flex-wrap:wrap;">
                 <button class="btn" style="padding:4px 7px; font-size:10.5px;" onclick="openDealInStudio(${d.id})" title="Abrir en Simulador Financiero"><svg class="nx-icon nx-icon-sm" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg> ${t("Simular", "Sim")}</button>
@@ -1999,6 +2043,12 @@ window.submitGateLogin = async function () {
     state.adminSegmentation = { ownerId: "ALL", brand: "ALL", modality: "ALL", country: "ALL", stage: "ALL" };
     closeLoginScreenGate();
     await loadDashboard();
+    const targetLanding = ["SALES_EXECUTIVE", "SALES_MANAGER", "PARTNER_MANAGER"].includes(
+      String(data.user.role_code || "").toUpperCase()
+    )
+      ? "leads"
+      : "dashboard";
+    window.switchView(targetLanding);
     showToast(`🔐 Bienvenido ${data.user.name} (${data.user.role}).`);
   } catch (err) {
     showGateError(`Error de red al iniciar sesión: ${err.message}`, false);
@@ -2090,6 +2140,12 @@ window.switchActiveExecutive = async function (userId) {
     closeLoginScreenGate();
     renderAuthUserUI();
     await loadDashboard();
+    const targetLanding = ["SALES_EXECUTIVE", "SALES_MANAGER", "PARTNER_MANAGER"].includes(
+      String(data.user.role_code || "").toUpperCase()
+    )
+      ? "leads"
+      : "dashboard";
+    window.switchView(targetLanding);
     showToast(`🔐 Sesión cambiada a: ${data.user.name} (${data.user.role} · ${data.user.role_code}).`);
   }
 };
@@ -3159,6 +3215,724 @@ window.deleteVaultAttachment = async function (id) {
     showToast("🗑️ Archivo eliminado de PostgreSQL.");
     await window.loadVaultAttachments();
   }
+};
+
+// ============================================================================
+// COCKPIT SALES MANAGER: LEADS MULTICANAL (WEB, ANDROID APP, WHATSAPP),
+// SEGUIMIENTO 1-CLIC Y CIERRE RÁPIDO (FAST-CLOSE)
+// ============================================================================
+function getSourceChannelBadge(channel) {
+  const ch = String(channel || "WEB_PAGE").toUpperCase();
+  if (ch === "WHATSAPP") {
+    return `<span class="badge" style="background:rgba(34,197,94,0.16); color:#4ade80; border:1px solid rgba(34,197,94,0.45);">💬 WhatsApp</span>`;
+  }
+  if (ch === "ANDROID_APP") {
+    return `<span class="badge" style="background:rgba(16,185,129,0.16); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.45);">📱 Android App</span>`;
+  }
+  return `<span class="badge" style="background:rgba(6,182,212,0.16); color:var(--accent-cyan); border:1px solid rgba(6,182,212,0.45);">🌐 Página Web</span>`;
+}
+
+function getLeadTemperatureBadge(temp) {
+  const tVal = String(temp || "HOT").toUpperCase();
+  if (tVal === "HOT") {
+    return `<span class="badge" style="background:rgba(244,63,94,0.18); color:#fda4af; border:1px solid rgba(244,63,94,0.45);">🔥 CALIENTE</span>`;
+  }
+  if (tVal === "COLD") {
+    return `<span class="badge" style="background:rgba(148,163,184,0.16); color:#cbd5e1; border:1px solid rgba(148,163,184,0.35);">❄️ FRÍO</span>`;
+  }
+  return `<span class="badge" style="background:rgba(245,158,11,0.16); color:var(--accent-gold); border:1px solid rgba(245,158,11,0.45);">⚡ TIBIO</span>`;
+}
+
+window.selectMultichannelTab = function (channel) {
+  const ch = String(channel || "WHATSAPP").toUpperCase();
+  state.activeMultichannelTab = ch;
+  const hiddenEl = document.getElementById("mc-source-channel");
+  if (hiddenEl) hiddenEl.value = ch;
+
+  const tabs = {
+    WHATSAPP: document.getElementById("mc-tab-whatsapp"),
+    ANDROID_APP: document.getElementById("mc-tab-android"),
+    WEB_PAGE: document.getElementById("mc-tab-web"),
+  };
+  Object.entries(tabs).forEach(([key, btn]) => {
+    if (!btn) return;
+    if (key === ch) {
+      btn.className = "btn btn-emerald";
+    } else {
+      btn.className = "btn";
+    }
+  });
+
+  const helper = document.getElementById("mc-channel-helper");
+  const noteInput = document.getElementById("mc-note");
+  if (helper) {
+    if (ch === "WHATSAPP") {
+      helper.innerHTML =
+        "💬 <strong>Canal activo: WhatsApp Business Directo.</strong> Pega el mensaje de WhatsApp del prospecto o llena los datos para crear el Cliente + Oportunidad y activar el SLA de respuesta en menos de 15 minutos.";
+      if (noteInput) {
+        noteInput.placeholder =
+          "Ej. 'Hola Camila, soy Jorge Pardo de Logística Andina (+57 315 800 9911), nos interesa rentar el agente autónomo por $890/mes...'";
+      }
+    } else if (ch === "ANDROID_APP") {
+      helper.innerHTML =
+        "📱 <strong>Canal activo: Android App Mobile Lead.</strong> Captura en terreno desde celular/tablet o solicitud in-app desde la aplicación Android corporativa.";
+      if (noteInput) {
+        noteInput.placeholder =
+          "Ej. 'Lead capturado desde Android App en visita ejecutiva: solicitan demo técnica y cotización llave en mano...'";
+      }
+    } else {
+      helper.innerHTML =
+        "🌐 <strong>Canal activo: Página Web (projectsfactory.io / finanactionable.co).</strong> Lead entrante de formulario web o calculadora ROI.";
+      if (noteInput) {
+        noteInput.placeholder =
+          "Ej. 'Formulario Web ROI: CFO solicita simulación FinActionable para 15 usuarios corporativos...'";
+      }
+    }
+  }
+};
+
+window.syncMultichannelProductDefaults = function () {
+  const prodSel = document.getElementById("mc-product");
+  if (!prodSel || !prodSel.selectedOptions[0]) return;
+  const opt = prodSel.selectedOptions[0];
+  const mrrEl = document.getElementById("mc-mrr");
+  const buyoutEl = document.getElementById("mc-buyout");
+  if (mrrEl && opt.dataset.mrr) mrrEl.value = Math.round(Number(opt.dataset.mrr));
+  if (buyoutEl && opt.dataset.buyout) buyoutEl.value = Math.round(Number(opt.dataset.buyout));
+};
+
+window.fillMultichannelQuickSample = function () {
+  const ch = state.activeMultichannelTab || "WHATSAPP";
+  const samples = {
+    WHATSAPP: {
+      company: "Grupo Nutresa Digital S.A.",
+      contact: "Mauricio Cárdenas (VP Operaciones)",
+      phone: "+57 314 789 4410",
+      email: "mcardenas@nutresadigital.co",
+      country: "Colombia",
+      modality: "RENTA_MRR",
+      temp: "HOT",
+      note: "Escribió por WhatsApp Business: urgencia por automatizar conciliación y pedidos B2B este mes. Presupuesto pre-aprobado.",
+    },
+    ANDROID_APP: {
+      company: "Fintech CrediYa Holding",
+      contact: "Valeria Soto (Directora Tecnología)",
+      phone: "+52 55 8120 3390",
+      email: "vsoto@crediyafintech.mx",
+      country: "México",
+      modality: "VENTA_CAPEX",
+      temp: "HOT",
+      note: "Registrado desde la Android App tras probar el simulador móvil: solicitan compra llave en mano (Buyout IP) para su core bancario.",
+    },
+    WEB_PAGE: {
+      company: "Clínica Internacional Santa Fe",
+      contact: "Dr. Fernando Restrepo (Gerente General)",
+      phone: "+57 310 552 9180",
+      email: "frestrepo@clinicasantafe.org",
+      country: "Colombia",
+      modality: "HIBRIDO_AAAS",
+      temp: "HOT",
+      note: "Completó formulario en Página Web (finanactionable.co): requiere despliegue de Agente Autónomo PQRSD + analítica financiera.",
+    },
+  };
+  const s = samples[ch] || samples.WHATSAPP;
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+  };
+  setVal("mc-company", s.company);
+  setVal("mc-contact", s.contact);
+  setVal("mc-phone", s.phone);
+  setVal("mc-email", s.email);
+  setVal("mc-country", s.country);
+  setVal("mc-modality", s.modality);
+  setVal("mc-temperature", s.temp);
+  setVal("mc-note", s.note);
+  showToast(`✨ Ejemplo de Lead (${ch}) cargado listo para crear en 1 clic.`);
+};
+
+window.dictateMultichannelNote = function () {
+  const noteEl = document.getElementById("mc-note");
+  if (!noteEl) return;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    noteEl.focus();
+    showToast("🎙️ Cursor en nota: presiona [Windows + H] o el micrófono de tu teclado móvil para dictar.");
+    return;
+  }
+  try {
+    const rec = new SpeechRecognition();
+    rec.lang = state.lang === "en" ? "en-US" : "es-CO";
+    rec.interimResults = false;
+    showToast("🎙️ Escuchando nota del Lead Multicanal...");
+    rec.onresult = (ev) => {
+      const txt = ev.results[0][0].transcript;
+      noteEl.value = (noteEl.value ? noteEl.value + " " : "") + txt;
+      showToast("✅ Nota de voz agregada al Lead.");
+    };
+    rec.start();
+  } catch {
+    noteEl.focus();
+  }
+};
+
+window.submitMultichannelLead = async function () {
+  const sourceChannel = document.getElementById("mc-source-channel")?.value || state.activeMultichannelTab || "WHATSAPP";
+  const companyName = (document.getElementById("mc-company")?.value || "").trim();
+  const contactName = (document.getElementById("mc-contact")?.value || "").trim();
+  const contactPhone = (document.getElementById("mc-phone")?.value || "").trim();
+  const contactEmail = (document.getElementById("mc-email")?.value || "").trim();
+  const country = document.getElementById("mc-country")?.value || "Colombia";
+  const productId = Number(document.getElementById("mc-product")?.value || 1);
+  const modality = document.getElementById("mc-modality")?.value || "RENTA_MRR";
+  const leadTemperature = document.getElementById("mc-temperature")?.value || "HOT";
+  const mrrUsd = Number(document.getElementById("mc-mrr")?.value || 950);
+  const buyoutUsd = Number(document.getElementById("mc-buyout")?.value || 21000);
+  const rawNote = (document.getElementById("mc-note")?.value || "").trim();
+
+  if (!companyName && !rawNote) {
+    showToast("⚠️ Ingresa el nombre de la empresa o pega el mensaje del cliente.");
+    document.getElementById("mc-company")?.focus();
+    return;
+  }
+
+  const res = await fetch("/api/leads/multichannel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sourceChannel,
+      companyName,
+      contactName,
+      contactPhone,
+      contactEmail,
+      country,
+      productId,
+      modality,
+      leadTemperature,
+      mrrUsd,
+      buyoutUsd,
+      rawNote,
+      ownerUserId: state.currentUser?.id || 2,
+      ownerName: state.currentUser?.name || "Camila Herrera",
+      ownerEmail: state.currentUser?.email || "camila@finanactionable.co",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    showToast(`⚠️ ${data.error || "No se pudo crear el Lead Multicanal"}`);
+    return;
+  }
+
+  // Clear form fields
+  ["mc-company", "mc-contact", "mc-phone", "mc-email", "mc-note"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+
+  await loadDashboard();
+  showToast(
+    `🚀 Lead Multicanal (${sourceChannel}) creado: "${data.account.company_name}" — Listo en tu Cola de Seguimiento y Cierre.`
+  );
+};
+
+window.simulateInboundMultichannelLead = async function (channel) {
+  const ch = String(channel || "WHATSAPP").toUpperCase();
+  const pool = {
+    WEB_PAGE: [
+      {
+        companyName: "Holding Empresarial Colpatria Digital",
+        contactName: "Santiago Uribe (Director Financiero)",
+        contactPhone: "+57 316 420 8819",
+        contactEmail: "suribe@colpatriadigital.co",
+        country: "Colombia",
+        modality: "RENTA_MRR",
+        leadTemperature: "HOT",
+        mrrUsd: 1350,
+        buyoutUsd: 26500,
+        rawNote: "Lead entrante de Página Web (finanactionable.co): calculó ROI en línea y solicita activación inmediata.",
+      },
+      {
+        companyName: "AgroExportadora del Pacífico S.A.",
+        contactName: "Lucía Fernández (Gerente Administrativa)",
+        contactPhone: "+51 987 412 300",
+        contactEmail: "lfernandez@agropacifico.pe",
+        country: "Perú",
+        modality: "RENTA_MRR",
+        leadTemperature: "HOT",
+        mrrUsd: 980,
+        buyoutUsd: 19500,
+        rawNote: "Lead entrante de Página Web (projectsfactory.io): requiere motor de conciliación tributaria.",
+      },
+    ],
+    ANDROID_APP: [
+      {
+        companyName: "Red Logística TCC SmartCargo",
+        contactName: "Andrés Villamizar (VP Operaciones Móviles)",
+        contactPhone: "+57 318 901 2245",
+        contactEmail: "avillamizar@tccsmart.co",
+        country: "Colombia",
+        modality: "HIBRIDO_AAAS",
+        leadTemperature: "HOT",
+        mrrUsd: 1180,
+        buyoutUsd: 24000,
+        rawNote: "Lead capturado desde Android App (v4.2 Mobile): solicita Agente Autónomo de despacho y facturación.",
+      },
+      {
+        companyName: "Grupo Hospitalario Sanitas LATAM",
+        contactName: "Dra. Paula Mendoza (Directora Experiencia)",
+        contactPhone: "+57 311 640 7782",
+        contactEmail: "pmendoza@sanitaslatam.com",
+        country: "Colombia",
+        modality: "RENTA_MRR",
+        leadTemperature: "HOT",
+        mrrUsd: 1250,
+        buyoutUsd: 25000,
+        rawNote: "Solicitud directa desde Android App: quieren activar piloto del Agente PQRSD esta misma semana.",
+      },
+    ],
+    WHATSAPP: [
+      {
+        companyName: "Inmobiliaria & Constructora Bolívar Tech",
+        contactName: "Carlos Eduardo Mejía (Gerente Comercial)",
+        contactPhone: "+57 320 815 6601",
+        contactEmail: "cemejia@bolivartech.co",
+        country: "Colombia",
+        modality: "VENTA_CAPEX",
+        leadTemperature: "HOT",
+        mrrUsd: 1100,
+        buyoutUsd: 23500,
+        rawNote: "Mensaje entrante de WhatsApp Business: 'Hola, tenemos presupuesto CapEx aprobado para comprar el software llave en mano hoy mismo.'",
+      },
+      {
+        companyName: "Distribuidora Farmacéutica Audifarma Plus",
+        contactName: "Natalia Gómez (Directora de Cartera)",
+        contactPhone: "+57 315 229 4090",
+        contactEmail: "ngomez@audifarmaplus.co",
+        country: "Colombia",
+        modality: "RENTA_MRR",
+        leadTemperature: "HOT",
+        mrrUsd: 950,
+        buyoutUsd: 21000,
+        rawNote: "Mensaje entrante de WhatsApp Business: solicitan link de propuesta para firmar contrato de Renta Mensual.",
+      },
+    ],
+  };
+
+  const list = pool[ch] || pool.WHATSAPP;
+  const pick = list[Math.floor(Math.random() * list.length)];
+  const randomProd = state.products[Math.floor(Math.random() * Math.max(1, state.products.length))];
+
+  const res = await fetch("/api/leads/multichannel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sourceChannel: ch,
+      ...pick,
+      productId: randomProd?.id || 1,
+      ownerUserId: state.currentUser?.id || 2,
+      ownerName: state.currentUser?.name || "Camila Herrera",
+      ownerEmail: state.currentUser?.email || "camila@finanactionable.co",
+    }),
+  });
+  const data = await res.json();
+  if (res.ok && data.ok) {
+    await loadDashboard();
+    showToast(`📲 [Webhook ${ch}] Nuevo Lead recibido: "${data.account.company_name}" (${data.account.contact_name}).`);
+  }
+};
+
+window.setSalesQueueFilter = function (filter) {
+  state.salesQueueFilter = filter || "ALL";
+  document.querySelectorAll("[data-sqfilter]").forEach((btn) => {
+    const isAct = btn.dataset.sqfilter === state.salesQueueFilter;
+    btn.className = isAct ? "btn btn-emerald" : "btn";
+  });
+  renderSalesManagerLeadsView();
+};
+
+function renderSalesManagerLeadsView() {
+  // 1. Populate product dropdown in Multichannel creator
+  const prodSel = document.getElementById("mc-product");
+  if (prodSel && state.products.length > 0) {
+    const curVal = prodSel.value;
+    prodSel.innerHTML = state.products
+      .map(
+        (p) =>
+          `<option value="${p.id}" data-mrr="${p.monthly_rent_mrr_usd || 950}" data-buyout="${
+            p.buyout_price_usd || 21000
+          }">${p.name} (${p.brand})</option>`
+      )
+      .join("");
+    if (curVal && Array.from(prodSel.options).some((o) => o.value === curVal)) {
+      prodSel.value = curVal;
+    }
+    const mrrEl = document.getElementById("mc-mrr");
+    if (mrrEl && !mrrEl.value) {
+      window.syncMultichannelProductDefaults();
+    }
+  }
+
+  // 2. Compute Sales Manager KPIs
+  const allDeals = state.deals || [];
+  const openDeals = allDeals.filter((d) => d.stage !== "CERRADO_GANADO");
+  const closedDeals = allDeals.filter((d) => d.stage === "CERRADO_GANADO");
+
+  const webCount = allDeals.filter((d) => String(d.source_channel || "WEB_PAGE").toUpperCase() === "WEB_PAGE").length;
+  const androidCount = allDeals.filter((d) => String(d.source_channel || "").toUpperCase() === "ANDROID_APP").length;
+  const waCount = allDeals.filter((d) => String(d.source_channel || "").toUpperCase() === "WHATSAPP").length;
+
+  const urgentDeals = openDeals.filter(
+    (d) =>
+      String(d.lead_temperature || "HOT").toUpperCase() === "HOT" ||
+      d.stage === "NEGOCIACION" ||
+      d.stage === "SIMULACION_FINACTIONABLE"
+  );
+
+  const hotClosingDeals = openDeals.filter(
+    (d) => d.stage === "NEGOCIACION" || d.stage === "SIMULACION_FINACTIONABLE" || Number(d.probability || 0) >= 65
+  );
+  const hotClosingValue = hotClosingDeals.reduce(
+    (acc, d) =>
+      acc + (d.modality === "VENTA_CAPEX" ? Number(d.buyout_dynamic_usd || 0) : Number(d.ltv_24m_usd || 0)),
+    0
+  );
+  const closedWonValue = closedDeals.reduce(
+    (acc, d) =>
+      acc + (d.modality === "VENTA_CAPEX" ? Number(d.buyout_dynamic_usd || 0) : Number(d.ltv_24m_usd || 0)),
+    0
+  );
+
+  const elMulti = document.getElementById("sm-kpi-multichannel");
+  const elMultiSub = document.getElementById("sm-kpi-multichannel-sub");
+  if (elMulti) elMulti.textContent = `${allDeals.length} Leads`;
+  if (elMultiSub) {
+    elMultiSub.innerHTML = `🌐 Web: <strong>${webCount}</strong> · 📱 Android: <strong>${androidCount}</strong> · 💬 WhatsApp: <strong>${waCount}</strong>`;
+  }
+
+  const elUrg = document.getElementById("sm-kpi-urgent");
+  const elUrgSub = document.getElementById("sm-kpi-urgent-sub");
+  if (elUrg) elUrg.textContent = `${urgentDeals.length} Prioritarios`;
+  if (elUrgSub) {
+    elUrgSub.textContent = `${openDeals.length} oportunidades abiertas en seguimiento activo`;
+  }
+
+  const elHotVal = document.getElementById("sm-kpi-hot-value");
+  const elHotSub = document.getElementById("sm-kpi-hot-sub");
+  if (elHotVal) elHotVal.textContent = fmtUsd(hotClosingValue);
+  if (elHotSub) {
+    elHotSub.textContent = `${hotClosingDeals.length} tratos listos para Cierre Rápido 1-Clic`;
+  }
+
+  const elWon = document.getElementById("sm-kpi-closed-won");
+  const elWonSub = document.getElementById("sm-kpi-closed-sub");
+  if (elWon) elWon.textContent = `${closedDeals.length} Ganados (${fmtUsd(closedWonValue)})`;
+  if (elWonSub) {
+    elWonSub.textContent = `Cierres efectivos acumulados en PostgreSQL`;
+  }
+
+  // 3. Filter and sort the Follow-up & Fast-Close Queue
+  const queueContainer = document.getElementById("sales-manager-queue-list");
+  if (!queueContainer) return;
+
+  let list = [...allDeals];
+  const f = state.salesQueueFilter || "ALL";
+  if (f === "OPEN_ONLY") {
+    list = list.filter((d) => d.stage !== "CERRADO_GANADO");
+  } else if (f === "URGENT") {
+    list = list.filter(
+      (d) =>
+        d.stage !== "CERRADO_GANADO" &&
+        (String(d.lead_temperature || "HOT").toUpperCase() === "HOT" ||
+          d.stage === "NEGOCIACION" ||
+          d.stage === "SIMULACION_FINACTIONABLE")
+    );
+  } else if (["WHATSAPP", "ANDROID_APP", "WEB_PAGE"].includes(f)) {
+    list = list.filter((d) => String(d.source_channel || "WEB_PAGE").toUpperCase() === f);
+  }
+
+  // Sort: Open deals first -> Negotiacion/Simulacion first -> Hot first -> Highest probability
+  const stagePriority = {
+    NEGOCIACION: 1,
+    SIMULACION_FINACTIONABLE: 2,
+    DEMO_TECNICA: 3,
+    DISCOVERY: 4,
+    CERRADO_GANADO: 9,
+  };
+  list.sort((a, b) => {
+    const spA = stagePriority[a.stage] || 5;
+    const spB = stagePriority[b.stage] || 5;
+    if (spA !== spB) return spA - spB;
+    return Number(b.probability || 0) - Number(a.probability || 0);
+  });
+
+  if (list.length === 0) {
+    queueContainer.innerHTML = `
+      <div style="padding:24px; border:1px dashed var(--border-hairline); border-radius:12px; text-align:center; color:var(--text-muted); font-size:13px;">
+        No hay oportunidades en este filtro. Usa el creador de la izquierda o los botones <strong>⚡ Simular Lead Entrante</strong> arriba.
+      </div>
+    `;
+    return;
+  }
+
+  queueContainer.innerHTML = list
+    .map((d) => {
+      const isWon = d.stage === "CERRADO_GANADO";
+      const stageObj = STAGES.find((s) => s.id === d.stage) || { label: d.stage };
+      const phone = d.contact_phone || "+57 310 450 8811";
+      const followupCount = Number(d.followup_count || 1);
+      const lastTouch = d.last_followup_at
+        ? new Date(d.last_followup_at).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })
+        : "Hoy";
+
+      return `
+        <div style="padding:14px; border-radius:12px; background:var(--bg-elevated); border:1px solid ${
+          isWon ? "rgba(16,185,129,0.45)" : "var(--border-hairline)"
+        }; border-left:4px solid ${
+        isWon
+          ? "var(--accent-emerald)"
+          : d.stage === "NEGOCIACION"
+          ? "var(--accent-gold)"
+          : "var(--accent-cyan)"
+      }; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+              ${getSourceChannelBadge(d.source_channel)}
+              ${getLeadTemperatureBadge(d.lead_temperature)}
+              ${modalityBadge(d.modality)}
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <span style="font-family:var(--font-mono); font-size:11px; padding:2px 8px; border-radius:99px; background:var(--bg-obsidian); color:var(--accent-cyan); border:1px solid var(--border-subtle);">
+                ${stageObj.label} · <strong>${d.probability}%</strong>
+              </span>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:700; font-size:14.5px; color:var(--text-primary);">${d.title}</div>
+              <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">
+                🏢 <strong>${d.company_name || "Empresa B2B"}</strong> (${d.country || "LATAM"}) · 👤 ${
+        d.contact_name || "Decisor"
+      } · <span style="font-family:var(--font-mono); color:var(--accent-emerald);">📱 ${phone}</span>
+              </div>
+            </div>
+            <div style="text-align:right; font-family:var(--font-mono); font-size:11.5px;">
+              <div style="color:var(--accent-emerald);">Renta: <strong>${fmtUsd(d.mrr_usd)}/mes</strong></div>
+              <div style="color:var(--accent-gold);">Buyout: <strong>${fmtUsd(d.buyout_dynamic_usd)}</strong></div>
+            </div>
+          </div>
+
+          <div style="padding:7px 10px; border-radius:8px; background:var(--bg-obsidian); font-size:11.5px; color:var(--text-secondary); display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:200px;">
+              📝 <strong>Último seguimiento (${followupCount} toques · ${lastTouch}):</strong> ${
+        d.last_followup_note || d.last_justification || d.next_action || "Lead registrado en cola activa."
+      }
+            </div>
+            <span style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-cyan);">
+              👤 ${d.last_changed_by || state.currentUser?.name || "Sales Manager"}
+            </span>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding-top:4px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn" type="button" style="padding:6px 10px; font-size:11.5px; border-color:rgba(34,197,94,0.45); color:#4ade80;" onclick="triggerWhatsAppFollowup(${d.id})" title="Enviar mensaje de seguimiento por WhatsApp y avanzar probabilidad">
+                💬 WhatsApp 1-Clic
+              </button>
+              <button class="btn" type="button" style="padding:6px 10px; font-size:11.5px; border-color:rgba(6,182,212,0.45); color:var(--accent-cyan);" onclick="openQuickFollowupModal(${d.id})" title="Abrir panel de seguimiento rápido (Llamada, Android App, Propuesta)">
+                📞 +Seguimiento (${followupCount})
+              </button>
+              <button class="btn" type="button" style="padding:6px 10px; font-size:11.5px;" onclick="switchView('kanban')" title="Ver tarjeta en el tablero Kanban">
+                📋 Ver en Kanban
+              </button>
+            </div>
+
+            ${
+              !isWon
+                ? `<button class="btn btn-primary" type="button" style="padding:7px 14px; font-size:12px; font-weight:700; background:linear-gradient(135deg, #10b981, #059669);" onclick="executeFastCloseDeal(${d.id})">
+                    🏆 Cierre Rápido 1-Clic (Ganar Ya)
+                  </button>`
+                : `<span class="badge badge-renta" style="padding:6px 12px; font-size:11.5px;">
+                    ✓ CERRADO GANADO (100%)
+                  </span>`
+            }
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+window.openQuickFollowupModal = function (dealId) {
+  const modalEl = document.getElementById("sales-followup-modal");
+  if (!modalEl) return;
+  const deal = state.deals.find((d) => Number(d.id) === Number(dealId));
+  if (!deal) return;
+
+  document.getElementById("sfm-deal-id").value = String(deal.id);
+  document.getElementById("sfm-deal-title").textContent = `${deal.title} — ${deal.company_name || "Cliente B2B"}`;
+  document.getElementById("sfm-deal-subtitle").innerHTML = `👤 Contacto: <strong>${
+    deal.contact_name || "Decisor"
+  }</strong> · 📱 <code>${deal.contact_phone || "+57 310 000 0000"}</code> · Etapa actual: <strong>${
+    deal.stage
+  } (${deal.probability}%)</strong>`;
+
+  const badgeEl = document.getElementById("sfm-channel-badge");
+  if (badgeEl) {
+    badgeEl.textContent = `ORIGEN: ${deal.source_channel || "WEB_PAGE"} · ${deal.followup_count || 1} SEGUIMIENTOS`;
+  }
+
+  const chSel = document.getElementById("sfm-channel");
+  if (chSel && deal.source_channel) {
+    chSel.value = ["WHATSAPP", "ANDROID_APP", "WEB_PAGE"].includes(deal.source_channel)
+      ? deal.source_channel
+      : "WHATSAPP";
+  }
+
+  const noteEl = document.getElementById("sfm-note");
+  if (noteEl) noteEl.value = "";
+
+  // Render deal follow-ups history
+  const histBox = document.getElementById("sfm-history-list");
+  if (histBox) {
+    const dealFollowups = (state.followups || []).filter((f) => Number(f.deal_id) === Number(deal.id));
+    if (dealFollowups.length === 0) {
+      histBox.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); padding:6px;">Sin toques adicionales aún. Usa los botones 1-Clic arriba para registrar el primero.</div>`;
+    } else {
+      histBox.innerHTML = dealFollowups
+        .map(
+          (f) => `
+          <div style="padding:7px 10px; border-radius:8px; background:var(--bg-obsidian); border-left:3px solid var(--accent-cyan); font-size:11.5px;">
+            <div style="display:flex; justify-content:space-between; color:var(--accent-emerald); font-family:var(--font-mono); font-size:10.5px;">
+              <span>[${f.channel}] · ${f.action_type}</span>
+              <span>${new Date(f.created_at).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}</span>
+            </div>
+            <div style="color:var(--text-primary); margin-top:2px;">${f.note}</div>
+          </div>
+        `
+        )
+        .join("");
+    }
+  }
+
+  modalEl.classList.add("open");
+};
+
+window.submitQuickFollowup = async function (presetChannel = null, presetNote = null, presetAdvance = null) {
+  const dealId = Number(document.getElementById("sfm-deal-id")?.value || 0);
+  if (!dealId) return;
+
+  const channel = presetChannel || document.getElementById("sfm-channel")?.value || "WHATSAPP";
+  const note =
+    presetNote ||
+    (document.getElementById("sfm-note")?.value || "").trim() ||
+    `Seguimiento ejecutivo realizado por ${channel} con confirmación de avance comercial.`;
+  const nextFollowupHours = Number(document.getElementById("sfm-next-hours")?.value || 24);
+  const advanceStage =
+    presetAdvance !== null
+      ? presetAdvance
+      : Boolean(document.getElementById("sfm-advance-stage")?.checked);
+
+  const res = await fetch(`/api/deals/${dealId}/followup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      channel,
+      actionType: "SEGUIMIENTO_COMERCIAL",
+      note,
+      nextFollowupHours,
+      advanceStage,
+      responsibleUserId: state.currentUser?.id || 2,
+      responsibleName: state.currentUser?.name || "Camila Herrera",
+      responsibleEmail: state.currentUser?.email || "camila@finanactionable.co",
+      responsibleRole: state.currentUser?.role || "Sales Manager B2B",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    showToast(`⚠️ ${data.error || "Error registrando seguimiento"}`);
+    return;
+  }
+
+  document.getElementById("sales-followup-modal")?.classList.remove("open");
+  await loadDashboard();
+  showToast(
+    `📞 Seguimiento #${data.deal.followup_count} registrado (${channel}) — Etapa: ${data.deal.stage} (${data.deal.probability}%).`
+  );
+};
+
+window.triggerWhatsAppFollowup = async function (dealId) {
+  const deal = state.deals.find((d) => Number(d.id) === Number(dealId));
+  if (!deal) return;
+
+  const msg = `Hola ${deal.contact_name || "equipo"}, te escribe ${
+    state.currentUser?.name || "Camila Herrera"
+  } de NexusPF (${deal.brand}). Te comparto la propuesta lista para activación de "${
+    deal.title
+  }" (Renta Mensual ${fmtUsd(deal.mrr_usd)}/mes o Llave en Mano ${fmtUsd(
+    deal.buyout_dynamic_usd
+  )}). ¿Confirmamos activación hoy?`;
+
+  navigator.clipboard?.writeText(msg).catch(() => {});
+
+  const res = await fetch(`/api/deals/${deal.id}/followup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      channel: "WHATSAPP",
+      actionType: "WHATSAPP_1CLIC",
+      note: `Mensaje ejecutivo de WhatsApp enviado a ${deal.contact_name || deal.company_name} (${
+        deal.contact_phone || "WhatsApp Directo"
+      }) con link de cierre.`,
+      nextFollowupHours: 12,
+      advanceStage: false,
+      responsibleUserId: state.currentUser?.id || 2,
+      responsibleName: state.currentUser?.name || "Camila Herrera",
+      responsibleEmail: state.currentUser?.email || "camila@finanactionable.co",
+      responsibleRole: state.currentUser?.role || "Sales Manager B2B",
+    }),
+  });
+
+  if (res.ok) {
+    await loadDashboard();
+    showToast(
+      `💬 Seguimiento WhatsApp registrado y mensaje copiado para ${deal.contact_name || deal.company_name} (${
+        deal.contact_phone || "WhatsApp"
+      }).`
+    );
+  }
+};
+
+window.executeFastCloseDeal = async function (dealId, fromModal = false) {
+  const deal = state.deals.find((d) => Number(d.id) === Number(dealId));
+  if (!deal) return;
+
+  const res = await fetch(`/api/deals/${deal.id}/fast-close`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      closingChannel: deal.source_channel || "WHATSAPP",
+      closingNote: `Cierre Rápido 1-Clic ejecutado por Sales Manager (${
+        state.currentUser?.name || "Camila Herrera"
+      }): contrato ${deal.modality} aprobado.`,
+      responsibleUserId: state.currentUser?.id || 2,
+      responsibleName: state.currentUser?.name || "Camila Herrera",
+      responsibleEmail: state.currentUser?.email || "camila@finanactionable.co",
+      responsibleRole: state.currentUser?.role || "Sales Manager B2B",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    showToast(`⚠️ ${data.error || "No se pudo ejecutar el Cierre Rápido"}`);
+    return;
+  }
+
+  if (fromModal) {
+    document.getElementById("sales-followup-modal")?.classList.remove("open");
+  }
+  await loadDashboard();
+  showToast(
+    `🏆 ¡CIERRE GANADO EN 1 CLIC! "${deal.title}" (${deal.company_name || "B2B"}) pasó a CERRADO_GANADO (100%) y sumó al Revenue.`
+  );
 };
 
 // Initialize on load and show Initial Authentication Screen if not yet authenticated in this session

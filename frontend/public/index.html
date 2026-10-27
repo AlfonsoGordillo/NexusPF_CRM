@@ -40,6 +40,15 @@
             </button>
           </li>
           <li>
+            <button class="nav-btn" data-view="leads" title="Sales Manager: Leads Multicanal (Web, Android App, WhatsApp), Seguimiento y Cierre Rápido">
+              <span class="nav-btn-left">
+                <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                <span class="nav-btn-label">Leads Multicanal & Cierre</span>
+              </span>
+              <span class="nav-tag" style="color:var(--accent-emerald);">FAST</span>
+            </button>
+          </li>
+          <li>
             <button class="nav-btn" data-view="smartgrid" title="Clientes & Contactos B2B (Smart Grid)">
               <span class="nav-btn-left">
                 <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -356,6 +365,195 @@
           </div>
         </section>
 
+        <!-- VIEW 1.5: SALES MANAGER COCKPIT (MULTICHANNEL LEADS: WEB, ANDROID APP, WHATSAPP + FOLLOW-UP + FAST CLOSE) -->
+        <section id="view-leads" class="view-panel">
+          <div class="section-header" style="flex-wrap:wrap;">
+            <div>
+              <h1 class="section-title">Centro de Leads Multicanal, Seguimiento Ágil & Cierre Rápido (Sales Manager)</h1>
+              <p class="section-desc">
+                Crea nuevos Leads desde <strong>🌐 Página Web</strong>, <strong>📱 Android App</strong> o <strong>💬 WhatsApp</strong>, registra seguimientos en 1 clic y acelera el cierre inmediato en PostgreSQL 16.
+              </p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn" type="button" onclick="simulateInboundMultichannelLead('WEB_PAGE')" title="Simular entrada instantánea desde formulario de Página Web">
+                🌐 +Simular Lead Web
+              </button>
+              <button class="btn" type="button" onclick="simulateInboundMultichannelLead('ANDROID_APP')" title="Simular captura en campo desde Android App">
+                📱 +Simular Lead Android App
+              </button>
+              <button class="btn btn-emerald" type="button" onclick="simulateInboundMultichannelLead('WHATSAPP')" title="Simular lead entrante de WhatsApp Business">
+                💬 +Simular Lead WhatsApp
+              </button>
+            </div>
+          </div>
+
+          <!-- KPI CARDS FOR SALES MANAGER -->
+          <div class="kpi-grid" style="margin-bottom:16px;">
+            <div class="kpi-card emerald-top">
+              <div class="kpi-label">Leads Activos por Canal (Web · Android · WhatsApp)</div>
+              <div class="kpi-value" id="sm-kpi-total-leads">0</div>
+              <div class="kpi-sub" id="sm-kpi-channels-breakdown">🌐 Web: 0 · 📱 Android: 0 · 💬 WhatsApp: 0</div>
+            </div>
+            <div class="kpi-card gold-top">
+              <div class="kpi-label">Prioridad de Seguimiento Hoy (🔥 Calientes)</div>
+              <div class="kpi-value" id="sm-kpi-hot-leads" style="color:var(--accent-gold);">0</div>
+              <div class="kpi-sub">Oportunidades listas para llamada / WhatsApp de cierre</div>
+            </div>
+            <div class="kpi-card cyan-top">
+              <div class="kpi-label">Valor en Pipeline Abierto (Renta 24m + Venta)</div>
+              <div class="kpi-value" id="sm-kpi-open-value" style="color:var(--accent-cyan);">$0</div>
+              <div class="kpi-sub" id="sm-kpi-open-mrr">MRR mensual en juego: $0/mes</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Cierres Ganados (`CERRADO_GANADO`)</div>
+              <div class="kpi-value" id="sm-kpi-won-count" style="color:var(--accent-emerald);">0</div>
+              <div class="kpi-sub" id="sm-kpi-won-value">Revenue cerrado acumulado: $0</div>
+            </div>
+          </div>
+
+          <!-- SPLIT: MULTICHANNEL LEAD CREATOR (LEFT) + FAST FOLLOW-UP & CLOSING QUEUE (RIGHT) -->
+          <div style="display:grid; grid-template-columns: 0.95fr 1.35fr; gap:16px; align-items:start;" class="sm-cockpit-grid">
+            <!-- LEFT: FAST MULTICHANNEL LEAD CAPTURE FORM -->
+            <div class="card-panel" style="border-top:2px solid var(--accent-emerald);">
+              <div class="card-title" style="margin-bottom:10px;">
+                <span>⚡ Creación Rápida de Lead Multicanal</span>
+                <span class="badge badge-renta" id="mc-active-channel-badge">💬 WHATSAPP</span>
+              </div>
+
+              <!-- 3 CHANNEL SELECTOR TABS -->
+              <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:12px;">
+                <button type="button" class="btn mc-channel-tab" id="mc-tab-WEB_PAGE" onclick="selectMultichannelTab('WEB_PAGE')" style="justify-content:center; padding:9px 6px;">
+                  🌐 Página Web
+                </button>
+                <button type="button" class="btn mc-channel-tab" id="mc-tab-ANDROID_APP" onclick="selectMultichannelTab('ANDROID_APP')" style="justify-content:center; padding:9px 6px;">
+                  📱 Android App
+                </button>
+                <button type="button" class="btn btn-emerald mc-channel-tab" id="mc-tab-WHATSAPP" onclick="selectMultichannelTab('WHATSAPP')" style="justify-content:center; padding:9px 6px;">
+                  💬 WhatsApp
+                </button>
+              </div>
+
+              <input type="hidden" id="mc-channel" value="WHATSAPP" />
+
+              <div id="mc-channel-helper" style="padding:8px 10px; border-radius:8px; background:var(--bg-elevated); border:1px solid var(--border-hairline); font-size:11.5px; color:var(--text-secondary); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <span id="mc-channel-helper-text">💬 Captura directa desde chat de WhatsApp Business. Incluye teléfono para responder en 1 clic.</span>
+                <button class="btn" type="button" style="padding:3px 8px; font-size:10.5px; white-space:nowrap;" onclick="fillMultichannelQuickSample()">
+                  ✨ Ejemplo 1-Clic
+                </button>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">🏢 Empresa / Prospecto *</label>
+                  <input type="text" id="mc-company" class="input-field" style="width:100%;" placeholder="Ej. Grupo Éxito Logística" />
+                </div>
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">👤 Contacto Decisor *</label>
+                  <input type="text" id="mc-contact" class="input-field" style="width:100%;" placeholder="Ej. Mauricio Restrepo" />
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">📱 WhatsApp / Celular Directo *</label>
+                  <input type="text" id="mc-phone" class="input-field" style="width:100%;" value="+57 314 890 1122" placeholder="+57 310 000 0000" />
+                </div>
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">✉️ Correo Corporativo</label>
+                  <input type="email" id="mc-email" class="input-field" style="width:100%;" placeholder="mrestrepo@empresa.co" />
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1.25fr 0.75fr; gap:10px; margin-bottom:10px;">
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">📦 Producto Digital / Agente IA *</label>
+                  <select id="mc-product" class="input-field" style="width:100%;" onchange="syncMultichannelProductDefaults()"></select>
+                </div>
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">🌎 País / Ciudad</label>
+                  <input type="text" id="mc-country" class="input-field" style="width:100%;" value="Colombia" />
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">Modalidad</label>
+                  <select id="mc-modality" class="input-field" style="width:100%;">
+                    <option value="RENTA_MRR">Renta MRR (SaaS)</option>
+                    <option value="VENTA_CAPEX">Venta CapEx (Buyout)</option>
+                    <option value="HIBRIDO_AAAS">Híbrido AaaS</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">Renta MRR (USD)</label>
+                  <input type="number" id="mc-mrr" class="input-field" style="width:100%;" value="950" />
+                </div>
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">Venta CapEx (USD)</label>
+                  <input type="number" id="mc-buyout" class="input-field" style="width:100%;" value="21000" />
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">🔥 Urgencia de Cierre</label>
+                  <select id="mc-temperature" class="input-field" style="width:100%;">
+                    <option value="HOT">🔥 Caliente — Cierre Inmediato</option>
+                    <option value="WARM">🟡 Tibio — En Evaluación</option>
+                    <option value="NEW">🔵 Nuevo — Primer Contacto</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="control-label" style="display:block; margin-bottom:4px;">Etapa Inicial</label>
+                  <select id="mc-stage" class="input-field" style="width:100%;">
+                    <option value="DISCOVERY">1. Discovery</option>
+                    <option value="DEMO_TECNICA">2. Demo Técnica</option>
+                    <option value="SIMULACION_FINACTIONABLE">3. Simulación FinActionable</option>
+                    <option value="NEGOCIACION">4. Negociación (Listo para Cierre)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label class="control-label">📝 Mensaje del Lead / Nota de Campo (Web, Android o WhatsApp)</label>
+                  <button class="btn" type="button" style="padding:2px 8px; font-size:10.5px;" onclick="dictateMultichannelNote()">
+                    🎙️ Dictar Nota
+                  </button>
+                </div>
+                <textarea id="mc-notes" rows="2" placeholder="Pega el mensaje de WhatsApp, comentario del formulario Web o nota de voz tomada en la Android App..."></textarea>
+              </div>
+
+              <button class="btn btn-emerald" type="button" style="width:100%; justify-content:center; padding:10px; font-size:13px;" onclick="submitMultichannelLead()">
+                🚀 Crear Lead Multicanal e Iniciar Seguimiento
+              </button>
+            </div>
+
+            <!-- RIGHT: ACTIVE FOLLOW-UP & FAST-CLOSE QUEUE -->
+            <div class="card-panel">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                <div>
+                  <div class="card-title" style="margin-bottom:2px;">
+                    <span>🎯 Cola Activa de Seguimiento y Cierre Rápido (1-Clic)</span>
+                  </div>
+                  <div style="font-size:11.5px; color:var(--text-secondary);">
+                    Contacta por WhatsApp, registra el seguimiento o ejecuta el <strong>⚡ Cierre Rápido</strong> sin fricción.
+                  </div>
+                </div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                  <button class="btn btn-emerald" type="button" id="sm-filter-ALL" style="padding:4px 9px; font-size:11px;" onclick="setSalesQueueFilter('ALL')">Todos</button>
+                  <button class="btn" type="button" id="sm-filter-WEB_PAGE" style="padding:4px 9px; font-size:11px;" onclick="setSalesQueueFilter('WEB_PAGE')">🌐 Web</button>
+                  <button class="btn" type="button" id="sm-filter-ANDROID_APP" style="padding:4px 9px; font-size:11px;" onclick="setSalesQueueFilter('ANDROID_APP')">📱 Android</button>
+                  <button class="btn" type="button" id="sm-filter-WHATSAPP" style="padding:4px 9px; font-size:11px;" onclick="setSalesQueueFilter('WHATSAPP')">💬 WhatsApp</button>
+                  <button class="btn" type="button" id="sm-filter-HOT" style="padding:4px 9px; font-size:11px;" onclick="setSalesQueueFilter('HOT')">🔥 Prioritarios</button>
+                </div>
+              </div>
+
+              <div id="sales-manager-queue-list" style="display:flex; flex-direction:column; gap:10px; max-height:600px; overflow-y:auto;"></div>
+            </div>
+          </div>
+        </section>
+
         <!-- VIEW 2: SMART GRID & MAGIC AI COLUMNS -->
         <section id="view-smartgrid" class="view-panel">
           <div class="section-header" style="flex-wrap:wrap;">
@@ -549,39 +747,39 @@
           <!-- 6 RBAC PROFILES MATRIX -->
           <div class="card-panel" style="margin-bottom:20px;">
             <div class="card-title">
-              <span>Matriz de los 6 Perfiles Corporativos Recomendados (RBAC)</span>
-              <span class="badge badge-hibrido">Gobernanza Comercial & Financiera</span>
+              <span>Matriz de Pantallas Asignadas según Rol Corporativo (RBAC)</span>
+              <span class="badge badge-hibrido">Pantallas Sales Manager vs. Otros Perfiles</span>
             </div>
             <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-top:12px;">
+              <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid var(--accent-cyan);">
+                <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan); font-weight:700;">1. SALES_EXECUTIVE (SALES MANAGER)</div>
+                <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Sales Manager B2B (Enfoque Comercial)</div>
+                <div style="font-size:12px; color:var(--text-secondary);"><strong>Pantallas asignadas (3):</strong> 1) <em>Leads Multicanal & Cierre Rápido</em> (Web, Android App, WhatsApp), 2) <em>Pipeline Kanban</em> y 3) <em>Mis Clientes B2B</em>. Oculta módulos financieros/técnicos/admin.</div>
+              </div>
               <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid var(--accent-emerald);">
-                <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-emerald); font-weight:700;">1. SUPER_ADMIN</div>
+                <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-emerald); font-weight:700;">2. SUPER_ADMIN</div>
                 <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Administrador General / Founder</div>
-                <div style="font-size:12px; color:var(--text-secondary);">Control total: CRUD Usuarios, Catálogo IP, aprobación de precios, Modo Simulación What-If CEO y Servidor MCP.</div>
+                <div style="font-size:12px; color:var(--text-secondary);"><strong>Pantallas asignadas (Todas - 8):</strong> Acceso global a todos los tableros, Barra Maestra de Segmentación, CRUD Usuarios RBAC, Catálogo IP y Servidor MCP.</div>
               </div>
               <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid var(--accent-gold);">
-                <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-gold); font-weight:700;">2. FINANCE_STRATEGIST</div>
+                <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-gold); font-weight:700;">3. FINANCE_STRATEGIST</div>
                 <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Director Financiero (FinActionable)</div>
-                <div style="font-size:12px; color:var(--text-secondary);">Autoridad sobre Deal Studio, estructuración Venta CapEx vs. Renta MRR, márgenes sobre Render/Firebase y LTV.</div>
-              </div>
-              <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid var(--accent-cyan);">
-                <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan); font-weight:700;">3. SALES_EXECUTIVE</div>
-                <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Ejecutivo Comercial B2B (Account Exec)</div>
-                <div style="font-size:12px; color:var(--text-secondary);">Operación diaria del Kanban Drag & Drop, Ingesta Zero-Admin (`Ctrl+K`), Smart Grid B2B y seguimiento de clientes.</div>
+                <div style="font-size:12px; color:var(--text-secondary);"><strong>Pantallas asignadas (4):</strong> <em>Command Center Financiero</em>, <em>FinActionable Deal Studio (Curvas 36m)</em>, <em>Kanban (Simulación/Negociación)</em> y <em>Catálogo IP</em>.</div>
               </div>
               <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #a855f7;">
                 <div style="font-family:var(--font-mono); font-size:11px; color:#c084fc; font-weight:700;">4. SOLUTIONS_ARCHITECT</div>
                 <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Arquitecto de Soluciones IA & Cloud</div>
-                <div style="font-size:12px; color:var(--text-secondary);">Responsable técnico de la columna <em>Demo Técnica</em>, definición de stack en el Catálogo IP y herramientas MCP.</div>
+                <div style="font-size:12px; color:var(--text-secondary);"><strong>Pantallas asignadas (4):</strong> <em>Tablero Técnico</em>, <em>Kanban (Demos Técnicas)</em>, <em>Catálogo IP & Tenants Cloud</em> y <em>Consola Servidor MCP</em>.</div>
               </div>
               <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #38bdf8;">
                 <div style="font-family:var(--font-mono); font-size:11px; color:#38bdf8; font-weight:700;">5. PARTNER_MANAGER</div>
                 <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Director de Alianzas & White-Label</div>
-                <div style="font-size:12px; color:var(--text-secondary);">Comercialización de licencias White-Label, integradores regionales y canales de distribución B2B.</div>
+                <div style="font-size:12px; color:var(--text-secondary);"><strong>Pantallas asignadas (4):</strong> <em>Leads Multicanal Partners</em>, <em>Pipeline Kanban</em>, <em>Cuentas Partner</em> y <em>Catálogo IP (Consulta White-Label)</em>.</div>
               </div>
               <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #94a3b8;">
                 <div style="font-family:var(--font-mono); font-size:11px; color:#cbd5e1; font-weight:700;">6. AUDITOR_VIEWER</div>
                 <div style="font-weight:700; font-size:13.5px; margin:3px 0;">Auditor / Junta Directiva & Investors</div>
-                <div style="font-size:12px; color:var(--text-secondary);">Supervisión de solo lectura sobre indicadores MRR/ARR, curvas de equilibrio y bitácora de auditoría Kanban.</div>
+                <div style="font-size:12px; color:var(--text-secondary);"><strong>Pantallas asignadas (3 - Solo Lectura):</strong> <em>Command Center Ejecutivo</em>, <em>Pipeline Kanban (Auditoría)</em> y <em>FinActionable Studio</em>.</div>
               </div>
             </div>
           </div>
@@ -664,6 +862,10 @@
         <button class="mobile-nav-item active" data-mview="dashboard" onclick="switchView('dashboard')">
           <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
           <span class="m-lbl" data-i18n-m="home">Inicio</span>
+        </button>
+        <button class="mobile-nav-item" data-mview="leads" onclick="switchView('leads')">
+          <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          <span class="m-lbl" data-i18n-m="leads">Leads</span>
         </button>
         <button class="mobile-nav-item" data-mview="smartgrid" onclick="switchView('smartgrid')">
           <svg class="nx-icon nx-icon-lg" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -1438,7 +1640,103 @@
     </div>
   </div>
 
+  <!-- MODAL DE SEGUIMIENTO 1-CLIC & CIERRE EXPRESS (SALES MANAGER) -->
+  <div class="modal-backdrop" id="sales-followup-modal">
+    <div class="modal-card" style="max-width:640px; border:1px solid rgba(245,158,11,0.45);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+        <div>
+          <span class="badge badge-hibrido" id="sfm-channel-badge">💬 WHATSAPP DIRECT</span>
+          <h2 id="sfm-deal-title" style="font-family:var(--font-display); font-size:19px; margin-top:6px;">Seguimiento & Cierre Rápido</h2>
+          <p id="sfm-deal-subtitle" style="font-size:12px; color:var(--text-secondary);">Registra un toque comercial en 1 clic o ejecuta el cierre inmediato.</p>
+        </div>
+        <button class="btn" type="button" onclick="document.getElementById('sales-followup-modal').classList.remove('open')">✕ Cerrar</button>
+      </div>
+
+      <input type="hidden" id="sfm-deal-id" value="" />
+
+      <!-- BOTONES 1-CLIC DE SEGUIMIENTO EXPRESS -->
+      <div style="margin-bottom:14px;">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-cyan); font-weight:700; margin-bottom:6px;">
+          ⚡ ACCIONES DE SEGUIMIENTO EN 1 CLIC (AVANZAN PROBABILIDAD +12% Y ACTUALIZAN SLA)
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px;">
+          <button class="btn" type="button" onclick="submitQuickFollowup('WHATSAPP', 'Mensaje de seguimiento enviado por WhatsApp con propuesta ejecutiva y link de activación.', true)" style="justify-content:flex-start; border-color:rgba(16,185,129,0.45); color:var(--accent-emerald);">
+            💬 WhatsApp Enviado (+Avanzar)
+          </button>
+          <button class="btn" type="button" onclick="submitQuickFollowup('CALL', 'Llamada ejecutiva con decisor completada: presupuesto validado y comité agendado.', true)" style="justify-content:flex-start; border-color:rgba(6,182,212,0.45); color:var(--accent-cyan);">
+            📞 Llamada Efectiva (+Avanzar)
+          </button>
+          <button class="btn" type="button" onclick="submitQuickFollowup('ANDROID_APP', 'Demo en vivo desde Android App / Telemetría móvil compartida con el cliente.', true)" style="justify-content:flex-start;">
+            📱 Demo Android App (+Avanzar)
+          </button>
+          <button class="btn" type="button" onclick="submitQuickFollowup('PROPOSAL', 'Cotización final Renta vs Buyout enviada lista para firma digital.', true)" style="justify-content:flex-start; border-color:rgba(245,158,11,0.45); color:var(--accent-gold);">
+            📄 Propuesta Final Enviada
+          </button>
+        </div>
+      </div>
+
+      <!-- FORMULARIO PERSONALIZADO DE SEGUIMIENTO -->
+      <div style="padding:12px; background:var(--bg-elevated); border-radius:10px; border:1px solid var(--border-hairline); margin-bottom:14px;">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-secondary); margin-bottom:8px;">
+          📝 REGISTRAR NOTA PERSONALIZADA DE SEGUIMIENTO
+        </div>
+        <div class="sim-form" style="grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:8px;">
+          <div class="field-group">
+            <label>Canal Utilizado</label>
+            <select class="nx-select" id="sfm-channel">
+              <option value="WHATSAPP">💬 WhatsApp</option>
+              <option value="CALL">📞 Llamada Telefónica</option>
+              <option value="ANDROID_APP">📱 Android App</option>
+              <option value="WEB_PAGE">🌐 Página Web / Meet</option>
+              <option value="PROPOSAL">📄 Envío de Propuesta</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Próximo Seguimiento (Horas)</label>
+            <select class="nx-select" id="sfm-next-hours">
+              <option value="4">En 4 horas (Urgente Hoy)</option>
+              <option value="24" selected>En 24 horas (Mañana)</option>
+              <option value="48">En 48 horas (2 días)</option>
+              <option value="72">En 72 horas (3 días)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group" style="margin-bottom:8px;">
+          <label>Acuerdo / Respuesta del Cliente</label>
+          <input type="text" class="nx-input" id="sfm-note" placeholder="Ej. El gerente financiero aprobó orden de compra, firman hoy a las 4pm..." />
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <label style="font-size:12px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; cursor:pointer;">
+            <input type="checkbox" id="sfm-advance-stage" checked /> Avanzar automáticamente a la siguiente etapa del Pipeline
+          </label>
+          <button class="btn btn-primary" type="button" onclick="submitQuickFollowup()">
+            💾 Guardar Seguimiento
+          </button>
+        </div>
+      </div>
+
+      <!-- HISTORIAL DE SEGUIMIENTOS DEL DEAL -->
+      <div style="margin-bottom:14px;">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); margin-bottom:6px;">
+          🕒 HISTORIAL RECIENTE DE SEGUIMIENTOS
+        </div>
+        <div id="sfm-history-list" style="display:flex; flex-direction:column; gap:6px; max-height:130px; overflow-y:auto;"></div>
+      </div>
+
+      <!-- BOTÓN DE CIERRE EXPRESS 1-CLIC -->
+      <div style="padding:12px; border-radius:10px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.45); display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700; font-size:13px; color:var(--accent-emerald);">🏆 ¿Listo para Cerrar Ganado Ahora Mismo?</div>
+          <div style="font-size:11.5px; color:var(--text-secondary);">Pasa a CERRADO_GANADO (100%), activa el tenant/buyout y suma al ARR inmediato.</div>
+        </div>
+        <button class="btn btn-primary" type="button" onclick="executeFastCloseDeal(Number(document.getElementById('sfm-deal-id').value), true)" style="background:linear-gradient(135deg, #10b981, #059669);">
+          ⚡ Cierre Rápido 1-Clic (Ganar Deal)
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-banner" id="toast-banner"></div>
-  <script src="/app.js?v=20261021i"></script>
+  <script src="/app.js?v=20261027a"></script>
 </body>
 </html>
