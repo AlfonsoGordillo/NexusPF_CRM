@@ -4,9 +4,325 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NexusPF CRM — Revenue & FinActionable OS</title>
-  <link rel="stylesheet" href="/styles.css?v=20261021h" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#070a10" />
+  <link rel="stylesheet" href="/styles.css?v=20261027c" />
 </head>
-<body>
+<body class="landing-mode">
+  <!-- =========================================================================
+       PUBLIC PROFESSIONAL LANDING PAGE (NexusPF CRM — Executive Obsidian)
+       Top-Right Login Button -> Enters APP by RBAC Role + Omnipresent AI-Agent Chat
+       ========================================================================= -->
+  <div id="public-landing-page" class="landing-shell">
+    <!-- STICKY TOP NAVBAR WITH PROMINENT TOP-RIGHT LOGIN BUTTON -->
+    <nav class="lp-navbar">
+      <div class="lp-navbar-inner">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span class="brand-mark" style="width:34px; height:34px; font-size:16px;">N</span>
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-family:var(--font-display); font-weight:800; font-size:18px; letter-spacing:-0.02em; color:var(--text-primary);">NexusPF CRM</span>
+              <span class="badge badge-renta" style="font-size:10px;">v4.8 Enterprise</span>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);">
+              projectsfactory.io × finanactionable.co · Revenue & AI-Agent OS
+            </div>
+          </div>
+        </div>
+
+        <div class="lp-nav-links">
+          <a href="#lp-architecture" class="lp-nav-link">Arquitectura Multicanal</a>
+          <a href="#lp-catalog" class="lp-nav-link">Catálogo & List Price</a>
+          <a href="#lp-pixel-whatsapp" class="lp-nav-link">App Google Pixel & WhatsApp IA</a>
+          <a href="#lp-lead-form" class="lp-nav-link">Cotizar / Solicitar Demo</a>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button class="btn" type="button" onclick="toggleThemeMode()" title="Alternar Modo Oscuro / Claro" style="padding:7px 10px; font-size:11.5px;">
+            🌓 Tema
+          </button>
+          <button class="lp-login-cta" type="button" id="lp-btn-top-login" onclick="openLoginScreenGate('login')">
+            <svg class="nx-icon" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>Login · Entrar al APP (Según Rol)</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- HERO SECTION (ASYMMETRIC SWISS FINTECH + LIVE REVENUE & LIST PRICE TERMINAL) -->
+    <section class="lp-hero">
+      <div>
+        <div class="lp-eyebrow">
+          <span class="pulse-dot"></span>
+          <span>REVENUE OS · WEB + GOOGLE PIXEL ANDROID APP + AGENTE IA WHATSAPP</span>
+        </div>
+        <h1 class="lp-headline">
+          Cierra activos digitales en <span class="emerald-grad">Renta SaaS (MRR)</span> o <span class="gold-grad">Venta de IP (CapEx)</span> a velocidad récord.
+        </h1>
+        <p class="lp-subheadline">
+          Diseñado para <strong>Sales Managers</strong>, <strong>Sales Executives</strong> y <strong>Comités Financieros</strong>. Captura leads reales desde esta Landing Page, tu <strong>Google Pixel (Android App en Wi-Fi Local o Render Cloud)</strong> y tu <strong>WhatsApp personal asistido por IA</strong> con List Price oficial integrado y <strong>AI-Agent Chat siempre activo dentro del APP</strong>.
+        </p>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px;">
+          <button class="lp-login-cta" type="button" onclick="openLoginScreenGate('login')">
+            🔐 Iniciar Sesión por Rol (Sales Manager · Executive · Admin)
+          </button>
+          <a href="#lp-lead-form" class="btn" style="padding:11px 18px; font-size:13.5px; font-weight:700; text-decoration:none;">
+            🚀 Solicitar Propuesta / Cotización en Vivo
+          </a>
+          <a href="#lp-catalog" class="btn btn-cyan" style="padding:11px 16px; font-size:13px; text-decoration:none;">
+            📦 Ver List Price Oficial (Renta vs Venta)
+          </a>
+        </div>
+
+        <!-- ACCESO RÁPIDO DEMO POR ROL RBAC -->
+        <div style="padding:12px 14px; border-radius:12px; background:var(--bg-surface); border:1px solid var(--border-subtle);">
+          <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">
+            ⚡ ENTRADA RÁPIDA AL APP SEGÚN PERFIL RBAC (CON AI-AGENT CHAT ACTIVO DENTRO DEL APP):
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-emerald" type="button" style="font-size:11.5px; padding:6px 11px;" onclick="quickEnterAppByEmail('camilo@projectsfactory.io')">
+              🎯 Entrar como Sales Manager (Camilo · Leads & Cierre)
+            </button>
+            <button class="btn btn-cyan" type="button" style="font-size:11.5px; padding:6px 11px;" onclick="quickEnterAppByEmail('valentina@projectsfactory.io')">
+              💼 Entrar como Sales Executive (Valentina · Catálogo & Kanban)
+            </button>
+            <button class="btn btn-gold" type="button" style="font-size:11.5px; padding:6px 11px;" onclick="quickEnterAppByEmail('alfonso@projectsfactory.io')">
+              👑 Entrar como Super Admin (Alfonso · Global OS)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: LIVE TELEMETRY & OMNI-CHANNEL TERMINAL CARD -->
+      <div class="lp-terminal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border-hairline);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="width:10px; height:10px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+            <span style="font-family:var(--font-mono); font-size:11.5px; font-weight:700; color:var(--text-primary);">NEXUSPF LIVE ENGINE · POSTGRESQL 16</span>
+          </div>
+          <span class="badge badge-renta" id="lp-live-wa-mode-pill">💬 WhatsApp IA: AUTO-RESPUESTA</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; margin-bottom:14px;">
+          <div style="padding:12px; border-radius:10px; background:var(--bg-elevated); border:1px solid var(--border-hairline);">
+            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">ARR RENTA SAAS ACTIVO</div>
+            <div style="font-family:var(--font-mono); font-size:22px; font-weight:800; color:var(--accent-emerald);" id="lp-stat-arr">$535,200</div>
+            <div style="font-size:11px; color:var(--text-secondary);">Contratos MRR recurrentes</div>
+          </div>
+          <div style="padding:12px; border-radius:10px; background:var(--bg-elevated); border:1px solid var(--border-hairline);">
+            <div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted);">PIPELINE PONDERADO B2B</div>
+            <div style="font-family:var(--font-mono); font-size:22px; font-weight:800; color:var(--accent-gold);" id="lp-stat-pipeline">$795,880</div>
+            <div style="font-size:11px; color:var(--text-secondary);">Renta 24m + Buyout CapEx</div>
+          </div>
+        </div>
+
+        <div style="padding:12px; border-radius:10px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.28); margin-bottom:12px;">
+          <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-emerald); font-weight:700; margin-bottom:6px;">
+            🤖 FLUJO MULTICANAL REAL (CERO SIMULACIONES FALSAS)
+          </div>
+          <div style="font-size:12px; color:var(--text-secondary); line-height:1.5;">
+            <div>1️⃣ <strong>Landing Web (`WEB_PAGE`):</strong> El prospecto cotiza abajo y crea el Deal real en PostgreSQL.</div>
+            <div>2️⃣ <strong>Google Pixel (`ANDROID_APP`):</strong> App nativa Kotlin con switch 1-Clic <code>📶 Wi-Fi Local ⇄ ☁️ Render Cloud</code>.</div>
+            <div>3️⃣ <strong>Agente IA WhatsApp (`WHATSAPP`):</strong> Responde con el List Price oficial en modo <code>🟢 Auto-Respuesta</code> o <code>🟡 Copiloto</code>.</div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">¿Ya tienes cuenta corporativa?</span>
+          <button class="btn btn-primary" type="button" onclick="openLoginScreenGate('login')" style="font-size:12px;">
+            Entrar al APP & AI-Agent Chat →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: ARQUITECTURA MULTICANAL REAL & ROLES RBAC -->
+    <section id="lp-architecture" class="lp-section">
+      <div style="margin-bottom:24px;">
+        <span class="badge badge-hibrido">ARQUITECTURA COMERCIAL B2B · SIN BOTONES DE SIMULACIÓN</span>
+        <h2 style="font-family:var(--font-display); font-size:28px; font-weight:800; margin-top:8px;">
+          3 Canales Reales de Captura + AI-Agent Chat Siempre Presente Dentro del APP
+        </h2>
+        <p style="font-size:14px; color:var(--text-secondary); max-width:780px; margin-top:4px;">
+          Cada usuario entra por el botón superior derecho de <strong>Login</strong> directo a las pantallas de su Rol RBAC y cuenta en todo momento con el <strong>🤖 NexusPF AI-Agent Chat</strong> conectado a PostgreSQL 16.
+        </p>
+      </div>
+
+      <div class="lp-grid-3">
+        <div class="lp-feature-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span class="badge badge-renta">CANAL 1 · WEB_PAGE</span>
+            <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-cyan);">Inbound Directo</span>
+          </div>
+          <h3 style="font-family:var(--font-display); font-size:18px; margin-bottom:8px;">🌐 Captura Web & Cotizador Dual</h3>
+          <p style="font-size:13px; color:var(--text-secondary); line-height:1.55;">
+            El formulario público de esta Landing Page inyecta prospectos reales en PostgreSQL (<code>POST /api/leads/multichannel</code>), asignándolos automáticamente a la cola prioritaria del <strong>Sales Manager</strong> con cálculo inmediato de Renta MRR o Venta CapEx.
+          </p>
+        </div>
+
+        <div class="lp-feature-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span class="badge badge-hibrido">CANAL 2 · ANDROID_APP</span>
+            <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-emerald);">Google Pixel Ready</span>
+          </div>
+          <h3 style="font-family:var(--font-display); font-size:18px; margin-bottom:8px;">📱 App Nativa Android (Google Pixel)</h3>
+          <p style="font-size:13px; color:var(--text-secondary); line-height:1.55;">
+            Proyecto nativo en Kotlin + Jetpack Compose (<code>android-pixel-app/</code>) e instalador PWA con <strong>interruptor 1-Clic</strong> para alternar entre <strong>📶 Red Local Wi-Fi</strong> y <strong>☁️ Render Cloud Production</strong> desde cualquier lugar.
+          </p>
+        </div>
+
+        <div class="lp-feature-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span class="badge badge-venta">CANAL 3 · WHATSAPP IA</span>
+            <span style="font-family:var(--font-mono); font-size:11px; color:var(--accent-gold);">1-Clic Auto ⇄ Copiloto</span>
+          </div>
+          <h3 style="font-family:var(--font-display); font-size:18px; margin-bottom:8px;">💬 Agente IA Conectado a tu WhatsApp</h3>
+          <p style="font-size:13px; color:var(--text-secondary); line-height:1.55;">
+            Vincula tu WhatsApp desde tu Google Pixel por código QR (Multi-Device) o Webhook. Incluye un <strong>interruptor en pantalla de 1 clic</strong> para alternar entre <strong>🟢 Auto-Respuesta IA Activa</strong> y <strong>🟡 Modo Asistente Copiloto</strong>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: CATÁLOGO OFICIAL DE PRODUCTOS DIGITALES & LIST PRICE (VENTA CAPEX vs RENTA MRR) -->
+    <section id="lp-catalog" class="lp-section">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+        <div>
+          <span class="badge badge-renta">PORTAFOLIO IP · LIST PRICE OFICIAL EN VIVO</span>
+          <h2 style="font-family:var(--font-display); font-size:28px; font-weight:800; margin-top:8px;">
+            Catálogo de Productos Digitales & Agentes IA (Renta MRR vs Venta CapEx)
+          </h2>
+          <p style="font-size:13.5px; color:var(--text-secondary);">
+            Precios de lista oficiales sincronizados en tiempo real con PostgreSQL 16. Selecciona cualquier activo para cotizarlo abajo en 1 clic.
+          </p>
+        </div>
+        <button class="btn btn-primary" type="button" onclick="openLoginScreenGate('login')">
+          🔐 Entrar al Catálogo Interno & Simulador LTV
+        </button>
+      </div>
+
+      <div id="lp-products-grid" class="lp-grid-3">
+        <!-- Renderizado dinámicamente por renderLandingPageCatalog() en app.js -->
+      </div>
+    </section>
+
+    <!-- SECTION 4: GOOGLE PIXEL ANDROID APP (WI-FI LOCAL ⇄ RENDER CLOUD) + WHATSAPP IA -->
+    <section id="lp-pixel-whatsapp" class="lp-section">
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;" class="sm-cockpit-grid">
+        <div class="lp-feature-card" style="border-color:rgba(6,182,212,0.4);">
+          <span class="badge badge-hibrido">📱 ANDROID APP PARA GOOGLE PIXEL (`android-pixel-app/`)</span>
+          <h3 style="font-family:var(--font-display); font-size:22px; font-weight:800; margin:10px 0 8px;">
+            Instala NexusPF en tu Google Pixel (Wi-Fi Local ⇄ Render Cloud)
+          </h3>
+          <p style="font-size:13px; color:var(--text-secondary); line-height:1.55; margin-bottom:12px;">
+            La aplicación Android nativa en Kotlin (`MainActivity.kt`) incluye en su barra superior un <strong>interruptor de 1 clic</strong> que te permite usarla tanto en tu oficina (vía IP LAN Wi-Fi) como fuera de casa conectada a la URL de producción en <strong>Render Cloud</strong>.
+          </p>
+          <div style="padding:10px 12px; border-radius:10px; background:var(--bg-elevated); border:1px solid var(--border-hairline); font-family:var(--font-mono); font-size:11.5px; color:var(--accent-cyan); margin-bottom:12px;">
+            cd C:\Users\gorda\Documents\NexusCRM\android-pixel-app<br/>
+            .\build-pixel-apk.ps1
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-cyan" type="button" onclick="openPixelAppModal()">
+              📱 Configurar Conexión Pixel (Wi-Fi ⇄ Render Cloud)
+            </button>
+          </div>
+        </div>
+
+        <div class="lp-feature-card" style="border-color:rgba(16,185,129,0.4);">
+          <span class="badge badge-renta">💬 AGENTE IA DE WHATSAPP CON INTERRUPTOR 1-CLIC</span>
+          <h3 style="font-family:var(--font-display); font-size:22px; font-weight:800; margin:10px 0 8px;">
+            Conecta tu WhatsApp y alterna en 1 clic: Auto-Respuesta ⇄ Copiloto
+          </h3>
+          <p style="font-size:13px; color:var(--text-secondary); line-height:1.55; margin-bottom:12px;">
+            Cuando un cliente escribe a tu WhatsApp preguntando por un producto digital, el Agente IA registra el Lead en PostgreSQL (`WHATSAPP`), consulta el <strong>List Price oficial de Renta MRR y Venta CapEx</strong> y actúa según el interruptor en pantalla:
+          </p>
+          <ul style="font-size:12.5px; color:var(--text-secondary); padding-left:18px; margin-bottom:12px; line-height:1.6;">
+            <li><strong>🟢 Modo Auto-Respuesta IA Activa:</strong> Responde al instante al WhatsApp del cliente con precios oficiales.</li>
+            <li><strong>🟡 Modo Asistente Copiloto:</strong> Prepara el borrador cotizado y espera tu aprobación en 1 clic.</li>
+          </ul>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-emerald" type="button" onclick="openLoginScreenGate('login')">
+              🔐 Entrar como Sales Manager para Gestionar WhatsApp IA
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: FORMULARIO PÚBLICO REAL DE CAPTURA WEB (`WEB_PAGE`) -->
+    <section id="lp-lead-form" class="lp-section">
+      <div class="lp-feature-card" style="border:1px solid rgba(16,185,129,0.45); background:linear-gradient(180deg, rgba(16,185,129,0.06), rgba(13,18,29,0.95));">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+          <div>
+            <span class="badge badge-renta">CAPTURA DIRECTA EN POSTGRESQL 16 · CANAL `WEB_PAGE`</span>
+            <h2 style="font-family:var(--font-display); font-size:24px; font-weight:800; margin-top:6px;">
+              Solicita una Propuesta Oficial (Renta SaaS MRR o Compra de IP CapEx)
+            </h2>
+            <p style="font-size:13px; color:var(--text-secondary);">
+              Este formulario crea inmediatamente la Cuenta B2B y la Oportunidad Comercial real en la cola del <strong>Sales Manager</strong>.
+            </p>
+          </div>
+          <span class="badge badge-hibrido">SLA Respuesta &lt; 5 min</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:12px;" class="sm-cockpit-grid">
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">🏢 Empresa / Organización *</label>
+            <input type="text" id="lp-company" class="input-field" style="width:100%;" placeholder="Ej. Bancolombia Innovación" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">👤 Nombre y Cargo del Decisor *</label>
+            <input type="text" id="lp-contact" class="input-field" style="width:100%;" placeholder="Ej. Catalina Gómez · VP Digital" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">📱 WhatsApp Directo *</label>
+            <input type="text" id="lp-phone" class="input-field" style="width:100%;" placeholder="+57 310 000 0000" />
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1.2fr 0.8fr; gap:12px; margin-bottom:12px;" class="sm-cockpit-grid">
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">✉️ Correo Corporativo *</label>
+            <input type="email" id="lp-email" class="input-field" style="width:100%;" placeholder="cgomez@empresa.com" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">📦 Producto Digital / Agente IA de Interés *</label>
+            <select id="lp-product" class="input-field" style="width:100%;"></select>
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">⚖️ Modalidad Preferida *</label>
+            <select id="lp-modality" class="input-field" style="width:100%;">
+              <option value="RENTA">🔄 Renta Mensual (MRR SaaS)</option>
+              <option value="VENTA">🏛️ Compra Total IP (CapEx)</option>
+              <option value="HIBRIDO">⚡ Híbrido (Renta + Opción Compra)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <label class="control-label" style="display:block; margin-bottom:4px;">📝 Requerimiento o Caso de Uso de Negocio</label>
+          <input type="text" id="lp-notes" class="input-field" style="width:100%;" placeholder="Ej. Necesitamos desplegar el Agente IA para 15 ejecutivos y evaluar Renta 24 meses vs Buyout..." />
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+          <div id="lp-lead-feedback" style="font-size:12.5px; color:var(--accent-emerald); font-weight:600;"></div>
+          <button class="lp-login-cta" type="button" onclick="submitLandingPageLead()">
+            🚀 Enviar Solicitud Real al Sales Manager (PostgreSQL)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <footer style="max-width:1280px; margin:0 auto; padding:24px 28px 48px; border-top:1px solid var(--border-hairline); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-size:12px; color:var(--text-muted);">
+      <div>© 2026 <strong>NexusPF CRM</strong> · projectsfactory.io &amp; finanactionable.co · PostgreSQL 16 + MCP + WhatsApp IA</div>
+      <div style="display:flex; gap:12px;">
+        <button class="btn" type="button" style="font-size:11.5px;" onclick="openPixelAppModal()">📱 App Google Pixel</button>
+        <button class="btn btn-emerald" type="button" style="font-size:11.5px;" onclick="openLoginScreenGate('login')">🔐 Login al APP por Rol</button>
+      </div>
+    </footer>
+  </div>
+
   <div class="app-layout">
     <!-- SIDEBAR -->
     <aside class="sidebar">
@@ -148,6 +464,16 @@
         </div>
 
         <div class="topbar-actions">
+          <button class="btn" id="btn-topbar-landing" type="button" onclick="enterLandingPageMode()" title="Ver Landing Page Pública de NexusPF CRM">
+            <svg class="nx-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span class="btn-label-desktop">Landing</span>
+          </button>
+
+          <button class="btn btn-emerald" id="btn-topbar-ai-chat" type="button" onclick="toggleAppAiChatDrawer()" title="Abrir AI-Agent Chat Omnipresente del APP">
+            <svg class="nx-icon" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span class="btn-label-desktop">🤖 AI-Agent Chat</span>
+          </button>
+
           <button class="btn" id="btn-topbar-vault" type="button" onclick="openAttachmentsVaultModal()" title="Bóveda de Archivos PDF, Notas de Voz y Documentos en PostgreSQL">
             <svg class="nx-icon" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             <span class="btn-label-desktop">Archivos</span>
@@ -371,18 +697,24 @@
             <div>
               <h1 class="section-title">Centro de Leads Multicanal, Seguimiento Ágil & Cierre Rápido (Sales Manager)</h1>
               <p class="section-desc">
-                Crea nuevos Leads desde <strong>🌐 Página Web</strong>, <strong>📱 Android App</strong> o <strong>💬 WhatsApp</strong>, registra seguimientos en 1 clic y acelera el cierre inmediato en PostgreSQL 16.
+                Gestiona Leads reales desde <strong>🌐 Landing Web</strong>, <strong>📱 Google Pixel Android App</strong> y <strong>💬 Agente IA WhatsApp</strong>, registra seguimientos en 1 clic y acelera el cierre en PostgreSQL 16.
               </p>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button class="btn" type="button" onclick="simulateInboundMultichannelLead('WEB_PAGE')" title="Simular entrada instantánea desde formulario de Página Web">
-                🌐 +Simular Lead Web
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <button
+                class="btn btn-emerald"
+                type="button"
+                id="btn-wa-mode-header"
+                onclick="toggleWhatsAppAiMode()"
+                title="Interruptor 1-Clic: Alternar entre Auto-Respuesta IA Activa y Modo Asistente Copiloto en tu WhatsApp"
+              >
+                🟢 WhatsApp IA: Auto-Respuesta Activa (1-Clic ⇄ Copiloto)
               </button>
-              <button class="btn" type="button" onclick="simulateInboundMultichannelLead('ANDROID_APP')" title="Simular captura en campo desde Android App">
-                📱 +Simular Lead Android App
+              <button class="btn" type="button" onclick="openWhatsAppAgentModal()" title="Vincular tu WhatsApp por Código QR desde tu Google Pixel y ver Bandeja IA">
+                💬 Conectar Mi WhatsApp (QR &amp; Bandeja IA)
               </button>
-              <button class="btn btn-emerald" type="button" onclick="simulateInboundMultichannelLead('WHATSAPP')" title="Simular lead entrante de WhatsApp Business">
-                💬 +Simular Lead WhatsApp
+              <button class="btn btn-cyan" type="button" onclick="openPixelAppModal()" title="Instalar App en Google Pixel y alternar entre Red Wi-Fi Local y Render Cloud">
+                📱 App Google Pixel (Wi-Fi ⇄ Render)
               </button>
             </div>
           </div>
@@ -416,7 +748,7 @@
             <!-- LEFT: FAST MULTICHANNEL LEAD CAPTURE FORM -->
             <div class="card-panel" style="border-top:2px solid var(--accent-emerald);">
               <div class="card-title" style="margin-bottom:10px;">
-                <span>⚡ Creación Rápida de Lead Multicanal</span>
+                <span>⚡ Registro Directo de Lead Multicanal</span>
                 <span class="badge badge-renta" id="mc-active-channel-badge">💬 WHATSAPP</span>
               </div>
 
@@ -437,8 +769,8 @@
 
               <div id="mc-channel-helper" style="padding:8px 10px; border-radius:8px; background:var(--bg-elevated); border:1px solid var(--border-hairline); font-size:11.5px; color:var(--text-secondary); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
                 <span id="mc-channel-helper-text">💬 Captura directa desde chat de WhatsApp Business. Incluye teléfono para responder en 1 clic.</span>
-                <button class="btn" type="button" style="padding:3px 8px; font-size:10.5px; white-space:nowrap;" onclick="fillMultichannelQuickSample()">
-                  ✨ Ejemplo 1-Clic
+                <button class="btn" type="button" style="padding:3px 8px; font-size:10.5px; white-space:nowrap;" onclick="openWhatsAppAgentModal()">
+                  🤖 Abrir Agente WhatsApp
                 </button>
               </div>
 
@@ -1804,7 +2136,255 @@
     </div>
   </div>
 
+  <!-- =========================================================================
+       OMNIPRESENT IN-APP AI-AGENT CHAT (ALWAYS ACTIVE INSIDE THE APP)
+       ========================================================================= -->
+  <button
+    type="button"
+    id="app-ai-agent-fab"
+    class="ai-agent-fab"
+    onclick="toggleAppAiChatDrawer()"
+    title="AI-Agent Chat Omnipresente (Conectado a PostgreSQL 16 + List Price + WhatsApp IA)"
+  >
+    <span class="pulse-dot" style="background:#04110b;"></span>
+    <span>🤖 NexusPF AI-Agent Chat</span>
+  </button>
+
+  <aside id="app-ai-agent-drawer" class="ai-agent-drawer">
+    <div class="ai-agent-header">
+      <div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="pulse-dot"></span>
+          <strong style="font-family:var(--font-display); font-size:15px;">🤖 NexusPF AI-Agent Chat</strong>
+        </div>
+        <div id="ai-agent-role-badge" style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); margin-top:2px;">
+          Rol activo: SUPER_ADMIN · PostgreSQL 16 Live
+        </div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn" type="button" style="padding:4px 8px; font-size:11px;" onclick="openWhatsAppAgentModal()" title="Configurar WhatsApp IA">
+          💬 WhatsApp
+        </button>
+        <button class="btn" type="button" style="padding:4px 8px; font-size:11px;" onclick="toggleAppAiChatDrawer()">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- QUICK ACTION CHIPS -->
+    <div style="padding:8px 12px; border-bottom:1px solid var(--border-hairline); display:flex; gap:6px; overflow-x:auto; background:var(--bg-surface);">
+      <button class="btn" type="button" style="padding:4px 8px; font-size:10.5px; white-space:nowrap;" onclick="sendAppAiChatMessage('Resumen de mi pipeline y oportunidades calientes para cierre hoy')">
+        🔥 Pipeline &amp; Cierres Hoy
+      </button>
+      <button class="btn" type="button" style="padding:4px 8px; font-size:10.5px; white-space:nowrap;" onclick="sendAppAiChatMessage('Muéstrame el List Price oficial del catálogo en Renta MRR vs Venta CapEx')">
+        📦 List Price Catálogo
+      </button>
+      <button class="btn" type="button" style="padding:4px 8px; font-size:10.5px; white-space:nowrap;" onclick="sendAppAiChatMessage('Estado del Agente IA de WhatsApp')">
+        💬 Estado WhatsApp IA
+      </button>
+      <button class="btn" type="button" style="padding:4px 8px; font-size:10.5px; white-space:nowrap;" onclick="sendAppAiChatMessage('Cambiar WhatsApp a modo copiloto')">
+        ⇄ Cambiar Modo WhatsApp
+      </button>
+    </div>
+
+    <!-- CHAT MESSAGES -->
+    <div id="app-ai-chat-messages" class="ai-agent-messages">
+      <div class="ai-msg-bubble assistant">
+        👋 Hola, soy tu <strong>NexusPF AI-Agent</strong> siempre disponible dentro del APP.<br/><br/>
+        Puedo consultar en vivo tu cartera en <strong>PostgreSQL 16</strong>, darte el <strong>List Price oficial (Renta MRR vs Venta CapEx)</strong> de cualquier producto, crear un Lead (`Crear lead Empresa | Contacto | +57...`), ejecutar un cierre rápido (`Cerrar deal #ID`) o alternar el modo de tu <strong>WhatsApp IA</strong>.
+      </div>
+    </div>
+
+    <!-- CHAT INPUT -->
+    <div class="ai-agent-input-bar">
+      <button class="btn" type="button" onclick="dictateAppAiChat()" title="Dictar por voz al AI-Agent" style="padding:8px 10px;">
+        🎙️
+      </button>
+      <input
+        type="text"
+        id="app-ai-chat-input"
+        class="input-field"
+        style="flex:1;"
+        placeholder="Pregunta precios, pipeline o escribe: Crear lead Empresa | Contacto..."
+        onkeydown="if(event.key==='Enter'){sendAppAiChatMessage();}"
+      />
+      <button class="btn btn-emerald" type="button" onclick="sendAppAiChatMessage()">
+        Enviar
+      </button>
+    </div>
+  </aside>
+
+  <!-- =========================================================================
+       MODAL: AGENTE IA CONECTADO A MI WHATSAPP (CON INTERRUPTOR 1-CLIC EN PANTALLA)
+       ========================================================================= -->
+  <div class="modal-backdrop" id="whatsapp-agent-modal">
+    <div class="modal-card" style="max-width:860px; border:1px solid rgba(16,185,129,0.5);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+        <div>
+          <span class="badge badge-renta">💬 AGENTE IA DE WHATSAPP · MULTI-DEVICE QR + WEBHOOK + LIST PRICE</span>
+          <h2 style="font-family:var(--font-display); font-size:21px; margin-top:6px;">
+            Conexión de Mi WhatsApp &amp; Interruptor de Modo IA en 1 Clic
+          </h2>
+          <p style="font-size:12.5px; color:var(--text-secondary);">
+            Vincula el WhatsApp de tu <strong>Google Pixel</strong> y elige en 1 clic si el Agente IA responde automáticamente o prepara borradores como Copiloto.
+          </p>
+        </div>
+        <button class="btn" type="button" onclick="document.getElementById('whatsapp-agent-modal').classList.remove('open')">✕ Cerrar</button>
+      </div>
+
+      <!-- INTERRUPTOR EN PANTALLA DE 1 CLIC (AUTO-RESPUESTA IA ACTIVA ⇄ MODO ASISTENTE COPILOTO) -->
+      <div style="padding:14px 16px; border-radius:12px; background:linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.08)); border:1px solid rgba(16,185,129,0.45); margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div>
+          <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-emerald); font-weight:700;">
+            ⚡ INTERRUPTOR EN PANTALLA (ALTERNAR EN 1 CLIC)
+          </div>
+          <div id="wa-modal-mode-title" style="font-family:var(--font-display); font-size:17px; font-weight:800; color:var(--text-primary); margin-top:2px;">
+            🟢 Modo Actual: Auto-Respuesta IA Activa (AUTO_REPLY)
+          </div>
+          <div id="wa-modal-mode-desc" style="font-size:12px; color:var(--text-secondary); margin-top:2px;">
+            El Agente IA responde inmediatamente al WhatsApp del prospecto con el List Price oficial (Renta MRR vs Venta CapEx) y crea el Lead en PostgreSQL.
+          </div>
+        </div>
+        <button
+          class="lp-login-cta"
+          type="button"
+          id="btn-wa-modal-switch"
+          onclick="toggleWhatsAppAiMode()"
+          style="padding:11px 18px; font-size:13px;"
+        >
+          🔄 Alternar en 1 Clic a Modo Copiloto ⇄ Auto-Respuesta
+        </button>
+      </div>
+
+      <!-- SPLIT: QR PAIRING FOR GOOGLE PIXEL (LEFT) + INCOMING WHATSAPP TEST / WEBHOOK & INBOX (RIGHT) -->
+      <div style="display:grid; grid-template-columns: 0.9fr 1.1fr; gap:14px;" class="sm-cockpit-grid">
+        <!-- LEFT: QR PAIRING -->
+        <div style="padding:14px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border-hairline);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--accent-cyan);">
+              📱 VINCULAR MI WHATSAPP (GOOGLE PIXEL)
+            </span>
+            <span class="badge badge-hibrido" id="wa-conn-status-badge">LISTO</span>
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); margin-bottom:10px; line-height:1.5;">
+            En tu <strong>Google Pixel</strong> abre <em>WhatsApp → Dispositivos vinculados → Vincular un dispositivo</em> y escanea el código QR generado por el motor Baileys Multi-Device:
+          </p>
+          <button class="btn btn-emerald" type="button" style="width:100%; justify-content:center; margin-bottom:10px;" onclick="generateWhatsAppQrCode()">
+            🔗 Generar Código QR para Mi WhatsApp
+          </button>
+          <div id="wa-qr-container" style="min-height:190px; border-radius:10px; background:var(--bg-surface); border:1px dashed var(--border-subtle); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px; text-align:center;">
+            <span style="font-size:12px; color:var(--text-muted);">Haz clic en "Generar Código QR" para mostrar el QR de emparejamiento en vivo.</span>
+          </div>
+        </div>
+
+        <!-- RIGHT: RECIBIR MENSAJE ENTRANTE DE WHATSAPP & BANDEJA DE RESPUESTAS IA -->
+        <div style="padding:14px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border-hairline);">
+          <div style="font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--accent-emerald); margin-bottom:8px;">
+            💬 RECEPCIÓN DIRECTA DE MENSAJE DE WHATSAPP (CREA LEAD REAL + COTIZA LIST PRICE)
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:8px;">
+            <input type="text" id="wa-in-name" class="input-field" placeholder="Nombre en WhatsApp (Ej. Andrés Mejía)" value="Andrés Mejía · CFO" />
+            <input type="text" id="wa-in-phone" class="input-field" placeholder="+57 315 800 9911" value="+57 315 800 9911" />
+          </div>
+          <div style="margin-bottom:8px;">
+            <input type="text" id="wa-in-company" class="input-field" style="width:100%;" placeholder="Empresa (Ej. Grupo Argos)" value="Grupo Argos Digital" />
+          </div>
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <input type="text" id="wa-in-text" class="input-field" style="flex:1;" value="Hola, me interesa conocer el precio en Renta y Venta de FinActionable Revenue Studio" />
+            <button class="btn btn-primary" type="button" onclick="sendTestIncomingWhatsApp()">
+              📥 Procesar WhatsApp
+            </button>
+          </div>
+
+          <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted); margin-bottom:6px;">
+            📋 HISTORIAL EN VIVO DEL AGENTE IA DE WHATSAPP (AUTO-RESPUESTAS &amp; BORRADORES COPILOTO):
+          </div>
+          <div id="wa-messages-feed" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       MODAL: GOOGLE PIXEL ANDROID APP (CONEXIÓN WI-FI LOCAL ⇄ RENDER CLOUD EN 1 CLIC)
+       ========================================================================= -->
+  <div class="modal-backdrop" id="pixel-app-modal">
+    <div class="modal-card" style="max-width:740px; border:1px solid rgba(6,182,212,0.5);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:14px;">
+        <div>
+          <span class="badge badge-hibrido">📱 GOOGLE PIXEL ANDROID APP · WI-FI LOCAL ⇄ RENDER CLOUD</span>
+          <h2 style="font-family:var(--font-display); font-size:21px; margin-top:6px;">
+            Instalar y Conectar NexusPF CRM en tu Celular Android (Google Pixel)
+          </h2>
+          <p style="font-size:12.5px; color:var(--text-secondary);">
+            Alterna en 1 clic entre tu <strong>Red Local Wi-Fi</strong> y la <strong>URL de Producción en Render Cloud</strong> para usar tu Google Pixel desde cualquier lugar.
+          </p>
+        </div>
+        <button class="btn" type="button" onclick="document.getElementById('pixel-app-modal').classList.remove('open')">✕ Cerrar</button>
+      </div>
+
+      <!-- INTERRUPTOR 1-CLIC DE CONEXIÓN: WI-FI LOCAL ⇄ RENDER CLOUD -->
+      <div style="padding:14px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border-subtle); margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+          <div>
+            <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--accent-cyan); font-weight:700;">
+              ⚡ INTERRUPTOR DE SERVIDOR PARA GOOGLE PIXEL (1-CLIC)
+            </div>
+            <div id="pixel-active-mode-label" style="font-weight:800; font-size:15px; color:var(--text-primary); margin-top:2px;">
+              📶 Modo Activo: Red Local Wi-Fi (LAN)
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-emerald" type="button" id="btn-pixel-wifi" onclick="setPixelConnectionEndpoint('LOCAL_WIFI')">
+              📶 Usar Red Local Wi-Fi
+            </button>
+            <button class="btn btn-cyan" type="button" id="btn-pixel-cloud" onclick="setPixelConnectionEndpoint('RENDER_CLOUD')">
+              ☁️ Usar Render Cloud URL
+            </button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">📶 URL Red Local Wi-Fi (IP de tu PC en la misma red Wi-Fi)</label>
+            <input type="text" id="pixel-wifi-url" class="input-field" style="width:100%;" value="http://192.168.1.100:3400" onchange="savePixelConnectionUrls()" />
+          </div>
+          <div>
+            <label class="control-label" style="display:block; margin-bottom:4px;">☁️ URL Producción en Render Cloud (Acceso desde cualquier lugar)</label>
+            <input type="text" id="pixel-cloud-url" class="input-field" style="width:100%;" value="https://nexuspf-web.onrender.com" onchange="savePixelConnectionUrls()" />
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;" class="sm-cockpit-grid">
+        <div style="padding:12px; border-radius:10px; background:var(--bg-surface); border:1px solid var(--border-hairline);">
+          <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-emerald); font-weight:700; margin-bottom:6px;">
+            OPCIÓN A · APP NATIVA ANDROID KOTLIN (`android-pixel-app/`)
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">
+            Código fuente nativo listo en <code>C:\Users\gorda\Documents\NexusCRM\android-pixel-app</code> con Jetpack Compose, barra superior con switch 1-Clic <code>📶 Wi-Fi ⇄ ☁️ Render</code> y botón nativo <code>+ Lead Pixel</code>.
+          </p>
+          <div style="font-family:var(--font-mono); font-size:11px; padding:8px; border-radius:8px; background:var(--bg-elevated); color:var(--accent-cyan);">
+            .\android-pixel-app\build-pixel-apk.ps1
+          </div>
+        </div>
+
+        <div style="padding:12px; border-radius:10px; background:var(--bg-surface); border:1px solid var(--border-hairline);">
+          <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-gold); font-weight:700; margin-bottom:6px;">
+            OPCIÓN B · INSTALACIÓN INSTANTÁNEA PWA EN TU GOOGLE PIXEL
+          </div>
+          <p style="font-size:12px; color:var(--text-secondary); line-height:1.5; margin-bottom:8px;">
+            Abre la URL activa desde Chrome en tu <strong>Google Pixel</strong> y pulsa el botón de abajo o selecciona <em>"Instalar aplicación"</em> para agregar el ícono nativo de NexusPF a tu pantalla de inicio.
+          </p>
+          <button class="btn btn-primary" type="button" style="width:100%; justify-content:center;" onclick="triggerPixelPwaInstall()">
+            📲 Instalar App en Pantalla de Inicio (PWA)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast-banner" id="toast-banner"></div>
-  <script src="/app.js?v=20261027b"></script>
+  <script src="/app.js?v=20261027c"></script>
 </body>
 </html>

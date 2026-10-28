@@ -394,6 +394,12 @@ async function loadDashboard() {
     renderCatalogView();
     renderTeamUsersView();
     populateSimulatorSelect();
+    if (typeof window.renderLandingPageCatalog === "function") {
+      window.renderLandingPageCatalog();
+    }
+    if (typeof window.loadWhatsAppAgentStatus === "function") {
+      window.loadWhatsAppAgentStatus();
+    }
   } catch (err) {
     console.error("Failed loading dashboard:", err);
   }
@@ -1964,6 +1970,11 @@ window.openLoginScreenGate = function (tab = "login") {
 
 window.closeLoginScreenGate = function () {
   sessionStorage.setItem("nexuspf_gate_authenticated", "1");
+  if (typeof window.enterInternalAppMode === "function") {
+    window.enterInternalAppMode();
+  } else {
+    document.body.classList.remove("landing-mode");
+  }
   if (loginGate) {
     loginGate.classList.remove("open");
     loginGate.style.display = "none";
@@ -3489,57 +3500,6 @@ window.applyMultichannelListPrice = function (modality) {
   );
 };
 
-window.fillMultichannelQuickSample = function () {
-  const ch = state.activeMultichannelTab || "WHATSAPP";
-  const samples = {
-    WHATSAPP: {
-      company: "Grupo Nutresa Digital S.A.",
-      contact: "Mauricio Cárdenas (VP Operaciones)",
-      phone: "+57 314 789 4410",
-      email: "mcardenas@nutresadigital.co",
-      country: "Colombia",
-      modality: "RENTA_MRR",
-      temp: "HOT",
-      note: "Escribió por WhatsApp Business: urgencia por automatizar conciliación y pedidos B2B este mes. Presupuesto pre-aprobado.",
-    },
-    ANDROID_APP: {
-      company: "Fintech CrediYa Holding",
-      contact: "Valeria Soto (Directora Tecnología)",
-      phone: "+52 55 8120 3390",
-      email: "vsoto@crediyafintech.mx",
-      country: "México",
-      modality: "VENTA_CAPEX",
-      temp: "HOT",
-      note: "Registrado desde la Android App tras probar el simulador móvil: solicitan compra llave en mano (Buyout IP) para su core bancario.",
-    },
-    WEB_PAGE: {
-      company: "Clínica Internacional Santa Fe",
-      contact: "Dr. Fernando Restrepo (Gerente General)",
-      phone: "+57 310 552 9180",
-      email: "frestrepo@clinicasantafe.org",
-      country: "Colombia",
-      modality: "HIBRIDO_AAAS",
-      temp: "HOT",
-      note: "Completó formulario en Página Web (finanactionable.co): requiere despliegue de Agente Autónomo PQRSD + analítica financiera.",
-    },
-  };
-  const s = samples[ch] || samples.WHATSAPP;
-  const setVal = (id, v) => {
-    const el = document.getElementById(id);
-    if (el) el.value = v;
-  };
-  setVal("mc-company", s.company);
-  setVal("mc-contact", s.contact);
-  setVal("mc-phone", s.phone);
-  setVal("mc-email", s.email);
-  setVal("mc-country", s.country);
-  setVal("mc-modality", s.modality);
-  setVal("mc-temperature", s.temp);
-  setVal("mc-note", s.note);
-  setVal("mc-notes", s.note);
-  showToast(`✨ Ejemplo de Lead (${ch}) cargado listo para crear en 1 clic.`);
-};
-
 window.dictateMultichannelNote = function () {
   const noteEl = document.getElementById("mc-notes") || document.getElementById("mc-note");
   if (!noteEl) return;
@@ -3632,112 +3592,6 @@ window.submitMultichannelLead = async function () {
   showToast(
     `🚀 Lead Multicanal (${sourceChannel}) creado: "${data.account.company_name}" — Listo en tu Cola de Seguimiento y Cierre.`
   );
-};
-
-window.simulateInboundMultichannelLead = async function (channel) {
-  const ch = String(channel || "WHATSAPP").toUpperCase();
-  const pool = {
-    WEB_PAGE: [
-      {
-        companyName: "Holding Empresarial Colpatria Digital",
-        contactName: "Santiago Uribe (Director Financiero)",
-        contactPhone: "+57 316 420 8819",
-        contactEmail: "suribe@colpatriadigital.co",
-        country: "Colombia",
-        modality: "RENTA_MRR",
-        leadTemperature: "HOT",
-        mrrUsd: 1350,
-        buyoutUsd: 26500,
-        rawNote: "Lead entrante de Página Web (finanactionable.co): calculó ROI en línea y solicita activación inmediata.",
-      },
-      {
-        companyName: "AgroExportadora del Pacífico S.A.",
-        contactName: "Lucía Fernández (Gerente Administrativa)",
-        contactPhone: "+51 987 412 300",
-        contactEmail: "lfernandez@agropacifico.pe",
-        country: "Perú",
-        modality: "RENTA_MRR",
-        leadTemperature: "HOT",
-        mrrUsd: 980,
-        buyoutUsd: 19500,
-        rawNote: "Lead entrante de Página Web (projectsfactory.io): requiere motor de conciliación tributaria.",
-      },
-    ],
-    ANDROID_APP: [
-      {
-        companyName: "Red Logística TCC SmartCargo",
-        contactName: "Andrés Villamizar (VP Operaciones Móviles)",
-        contactPhone: "+57 318 901 2245",
-        contactEmail: "avillamizar@tccsmart.co",
-        country: "Colombia",
-        modality: "HIBRIDO_AAAS",
-        leadTemperature: "HOT",
-        mrrUsd: 1180,
-        buyoutUsd: 24000,
-        rawNote: "Lead capturado desde Android App (v4.2 Mobile): solicita Agente Autónomo de despacho y facturación.",
-      },
-      {
-        companyName: "Grupo Hospitalario Sanitas LATAM",
-        contactName: "Dra. Paula Mendoza (Directora Experiencia)",
-        contactPhone: "+57 311 640 7782",
-        contactEmail: "pmendoza@sanitaslatam.com",
-        country: "Colombia",
-        modality: "RENTA_MRR",
-        leadTemperature: "HOT",
-        mrrUsd: 1250,
-        buyoutUsd: 25000,
-        rawNote: "Solicitud directa desde Android App: quieren activar piloto del Agente PQRSD esta misma semana.",
-      },
-    ],
-    WHATSAPP: [
-      {
-        companyName: "Inmobiliaria & Constructora Bolívar Tech",
-        contactName: "Carlos Eduardo Mejía (Gerente Comercial)",
-        contactPhone: "+57 320 815 6601",
-        contactEmail: "cemejia@bolivartech.co",
-        country: "Colombia",
-        modality: "VENTA_CAPEX",
-        leadTemperature: "HOT",
-        mrrUsd: 1100,
-        buyoutUsd: 23500,
-        rawNote: "Mensaje entrante de WhatsApp Business: 'Hola, tenemos presupuesto CapEx aprobado para comprar el software llave en mano hoy mismo.'",
-      },
-      {
-        companyName: "Distribuidora Farmacéutica Audifarma Plus",
-        contactName: "Natalia Gómez (Directora de Cartera)",
-        contactPhone: "+57 315 229 4090",
-        contactEmail: "ngomez@audifarmaplus.co",
-        country: "Colombia",
-        modality: "RENTA_MRR",
-        leadTemperature: "HOT",
-        mrrUsd: 950,
-        buyoutUsd: 21000,
-        rawNote: "Mensaje entrante de WhatsApp Business: solicitan link de propuesta para firmar contrato de Renta Mensual.",
-      },
-    ],
-  };
-
-  const list = pool[ch] || pool.WHATSAPP;
-  const pick = list[Math.floor(Math.random() * list.length)];
-  const randomProd = state.products[Math.floor(Math.random() * Math.max(1, state.products.length))];
-
-  const res = await fetch("/api/leads/multichannel", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sourceChannel: ch,
-      ...pick,
-      productId: randomProd?.id || 1,
-      ownerUserId: state.currentUser?.id || 2,
-      ownerName: state.currentUser?.name || "Camila Herrera",
-      ownerEmail: state.currentUser?.email || "camila@finanactionable.co",
-    }),
-  });
-  const data = await res.json();
-  if (res.ok && data.ok) {
-    await loadDashboard();
-    showToast(`📲 [Webhook ${ch}] Nuevo Lead recibido: "${data.account.company_name}" (${data.account.contact_name}).`);
-  }
 };
 
 window.setSalesQueueFilter = function (filter) {
@@ -4134,9 +3988,572 @@ window.executeFastCloseDeal = async function (dealId, fromModal = false) {
   );
 };
 
-// Initialize on load and show Initial Authentication Screen if not yet authenticated in this session
+// ============================================================================
+// 1. PUBLIC PROFESSIONAL LANDING PAGE & ROLE-BASED APP ENTRY
+// ============================================================================
+window.enterLandingPageMode = function () {
+  document.body.classList.add("landing-mode");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  window.renderLandingPageCatalog();
+  showToast("🌐 Vista Landing Page Pública de NexusPF CRM activada.");
+};
+
+window.enterInternalAppMode = function () {
+  document.body.classList.remove("landing-mode");
+  const roleBadge = document.getElementById("ai-agent-role-badge");
+  if (roleBadge && state.currentUser) {
+    roleBadge.textContent = `Rol activo: ${state.currentUser.role_code || "SUPER_ADMIN"} (${state.currentUser.name}) · PostgreSQL 16`;
+  }
+};
+
+window.quickEnterAppByEmail = async function (email) {
+  const targetUser = (state.users || []).find(
+    (u) => String(u.email || "").toLowerCase() === String(email || "").toLowerCase()
+  );
+  if (targetUser) {
+    await window.switchActiveExecutive(targetUser.id);
+    window.enterInternalAppMode();
+    return;
+  }
+  window.openLoginScreenGate("login");
+};
+
+window.renderLandingPageCatalog = function () {
+  const grid = document.getElementById("lp-products-grid");
+  const lpSelect = document.getElementById("lp-product");
+  const products = state.products || [];
+
+  // Update Hero telemetry stats on Landing Page
+  const arrEl = document.getElementById("lp-stat-arr");
+  const pipeEl = document.getElementById("lp-stat-pipeline");
+  if (arrEl && state.kpis?.projectedArrUsd) {
+    arrEl.textContent = fmtUsd(state.kpis.projectedArrUsd);
+  }
+  if (pipeEl && state.kpis?.totalBuyoutPipelineUsd) {
+    pipeEl.textContent = fmtUsd(state.kpis.totalBuyoutPipelineUsd);
+  }
+
+  if (lpSelect && products.length > 0) {
+    const curVal = lpSelect.value;
+    lpSelect.innerHTML = products
+      .map(
+        (p) =>
+          `<option value="${p.id}">${p.name} — Renta ${fmtUsd(p.monthly_rent_mrr_usd)}/mes | Venta ${fmtUsd(
+            p.buyout_price_usd
+          )}</option>`
+      )
+      .join("");
+    if (curVal && Array.from(lpSelect.options).some((o) => o.value === curVal)) {
+      lpSelect.value = curVal;
+    }
+  }
+
+  if (!grid || products.length === 0) return;
+
+  grid.innerHTML = products
+    .map((p) => {
+      const mrr = Math.round(Number(p.monthly_rent_mrr_usd || 950));
+      const setup = Math.round(Number(p.setup_fee_usd || 2200));
+      const buyout = Math.round(Number(p.buyout_price_usd || 21000));
+      const ltv24 = setup + mrr * 24;
+      const breakeven = ((buyout - setup) / Math.max(1, mrr)).toFixed(1);
+
+      return `
+        <div class="lp-feature-card" style="display:flex; flex-direction:column; justify-content:space-between; gap:12px;">
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+              <span class="badge ${p.brand === "finanactionable.co" ? "badge-venta" : "badge-renta"}">${p.brand}</span>
+              <span style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted);">${p.category || "AI / SaaS"}</span>
+            </div>
+            <h3 style="font-family:var(--font-display); font-size:17px; font-weight:700; color:var(--text-primary); margin-bottom:6px;">
+              ${p.name}
+            </h3>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+              <div style="padding:10px; border-radius:8px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3);">
+                <div style="font-family:var(--font-mono); font-size:9.5px; color:var(--accent-emerald); font-weight:700;">LIST PRICE RENTA (MRR)</div>
+                <div style="font-family:var(--font-mono); font-size:16px; font-weight:800; color:var(--text-primary); margin-top:2px;">${fmtUsd(mrr)}<span style="font-size:11px; font-weight:400;">/mes</span></div>
+                <div style="font-size:10.5px; color:var(--text-secondary);">+ ${fmtUsd(setup)} Setup · LTV 24m: ${fmtUsd(ltv24)}</div>
+              </div>
+              <div style="padding:10px; border-radius:8px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3);">
+                <div style="font-family:var(--font-mono); font-size:9.5px; color:var(--accent-gold); font-weight:700;">LIST PRICE VENTA (CAPEX)</div>
+                <div style="font-family:var(--font-mono); font-size:16px; font-weight:800; color:var(--text-primary); margin-top:2px;">${fmtUsd(buyout)}</div>
+                <div style="font-size:10.5px; color:var(--text-secondary);">Llave en mano · Eq: Mes ${breakeven}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px; padding-top:8px; border-top:1px solid var(--border-hairline);">
+            <button class="btn btn-emerald" type="button" style="flex:1; justify-content:center; font-size:11.5px;" onclick="selectLandingProductForQuote(${p.id}, 'RENTA')">
+              🔄 Cotizar Renta
+            </button>
+            <button class="btn btn-gold" type="button" style="flex:1; justify-content:center; font-size:11.5px;" onclick="selectLandingProductForQuote(${p.id}, 'VENTA')">
+              🏛️ Cotizar Compra IP
+            </button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+};
+
+window.selectLandingProductForQuote = function (productId, modality) {
+  const lpSelect = document.getElementById("lp-product");
+  const lpMod = document.getElementById("lp-modality");
+  if (lpSelect) lpSelect.value = String(productId);
+  if (lpMod && modality) lpMod.value = modality;
+  const formSec = document.getElementById("lp-lead-form");
+  if (formSec) formSec.scrollIntoView({ behavior: "smooth" });
+  document.getElementById("lp-company")?.focus();
+};
+
+window.submitLandingPageLead = async function () {
+  const companyName = (document.getElementById("lp-company")?.value || "").trim();
+  const contactName = (document.getElementById("lp-contact")?.value || "").trim();
+  const contactPhone = (document.getElementById("lp-phone")?.value || "").trim();
+  const contactEmail = (document.getElementById("lp-email")?.value || "").trim();
+  const productId = Number(document.getElementById("lp-product")?.value || 1);
+  const rawMod = document.getElementById("lp-modality")?.value || "RENTA";
+  const modality =
+    rawMod === "VENTA" ? "VENTA_CAPEX" : rawMod === "HIBRIDO" ? "HIBRIDO_AAAS" : "RENTA_MRR";
+  const rawNote = (document.getElementById("lp-notes")?.value || "").trim();
+  const feedbackEl = document.getElementById("lp-lead-feedback");
+
+  if (!companyName || !contactName) {
+    showToast("⚠️ Ingresa el nombre de tu Empresa y Contacto Decisor.");
+    document.getElementById("lp-company")?.focus();
+    return;
+  }
+
+  const prod = (state.products || []).find((p) => Number(p.id) === productId) || state.products[0] || {};
+  const mrrUsd = Number(prod.monthly_rent_mrr_usd || 950);
+  const buyoutUsd = Number(prod.buyout_price_usd || 21000);
+
+  const res = await fetch("/api/leads/multichannel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sourceChannel: "WEB_PAGE",
+      companyName,
+      contactName,
+      contactPhone: contactPhone || "+57 310 000 0000",
+      contactEmail,
+      country: "Colombia",
+      productId,
+      modality,
+      leadTemperature: "HOT",
+      initialStage: "DISCOVERY",
+      mrrUsd,
+      buyoutUsd,
+      rawNote:
+        rawNote ||
+        `Lead real capturado desde la Landing Page Pública de NexusPF CRM (${prod.name || "Activo Digital"}).`,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.ok) {
+    showToast(`⚠️ ${data.error || "No se pudo registrar la solicitud"}`);
+    return;
+  }
+
+  ["lp-company", "lp-contact", "lp-phone", "lp-email", "lp-notes"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+
+  if (feedbackEl) {
+    feedbackEl.innerHTML = `✅ Solicitud registrada en PostgreSQL (#${data.deal.id} · ${data.account.company_name}). Asignada al Sales Manager con SLA inmediato.`;
+  }
+  await loadDashboard();
+  showToast(`🚀 Solicitud Web creada en PostgreSQL: "${data.account.company_name}" (#${data.deal.id}).`);
+};
+
+// ============================================================================
+// 2. OMNIPRESENT IN-APP AI-AGENT CHAT (ALWAYS AVAILABLE INSIDE THE APP)
+// ============================================================================
+window.toggleAppAiChatDrawer = function () {
+  const drawer = document.getElementById("app-ai-agent-drawer");
+  if (!drawer) return;
+  drawer.classList.toggle("open");
+  if (drawer.classList.contains("open")) {
+    const roleBadge = document.getElementById("ai-agent-role-badge");
+    if (roleBadge && state.currentUser) {
+      roleBadge.textContent = `Rol activo: ${state.currentUser.role_code || "SUPER_ADMIN"} (${state.currentUser.name}) · PostgreSQL 16`;
+    }
+    setTimeout(() => document.getElementById("app-ai-chat-input")?.focus(), 100);
+  }
+};
+
+function formatMarkdownLite(text) {
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\n/g, "<br/>");
+}
+
+window.sendAppAiChatMessage = async function (presetText = null) {
+  const inputEl = document.getElementById("app-ai-chat-input");
+  const box = document.getElementById("app-ai-chat-messages");
+  if (!box) return;
+
+  const message = (presetText !== null ? presetText : inputEl?.value || "").trim();
+  if (!message) return;
+  if (presetText === null && inputEl) inputEl.value = "";
+
+  // Append user bubble
+  const userBubble = document.createElement("div");
+  userBubble.className = "ai-msg-bubble user";
+  userBubble.textContent = message;
+  box.appendChild(userBubble);
+  box.scrollTop = box.scrollHeight;
+
+  // Append thinking bubble
+  const botBubble = document.createElement("div");
+  botBubble.className = "ai-msg-bubble assistant";
+  botBubble.innerHTML = "⏳ <em>Consultando PostgreSQL 16 y motor FinActionable...</em>";
+  box.appendChild(botBubble);
+  box.scrollTop = box.scrollHeight;
+
+  const activePanel = document.querySelector(".view-panel.active");
+  const currentView = activePanel ? activePanel.id.replace("view-", "") : "dashboard";
+
+  try {
+    const res = await fetch("/api/ai/agent-chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message,
+        userId: state.currentUser?.id || 1,
+        userName: state.currentUser?.name || "Alfonso Gordillo",
+        userRole: state.currentUser?.role_code || "SUPER_ADMIN",
+        currentView,
+      }),
+    });
+    const data = await res.json();
+    botBubble.innerHTML = formatMarkdownLite(data.reply || "Listo.");
+    box.scrollTop = box.scrollHeight;
+
+    if (data.actionExecuted) {
+      await loadDashboard();
+    }
+  } catch (err) {
+    botBubble.innerHTML = `⚠️ Error comunicando con el AI-Agent: ${err.message}`;
+  }
+};
+
+window.dictateAppAiChat = function () {
+  const inputEl = document.getElementById("app-ai-chat-input");
+  if (!inputEl) return;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    inputEl.focus();
+    showToast("🎙️ Presiona [Windows + H] o el micrófono de tu teclado móvil para hablar con el AI-Agent.");
+    return;
+  }
+  try {
+    const rec = new SpeechRecognition();
+    rec.lang = state.lang === "en" ? "en-US" : "es-CO";
+    rec.interimResults = false;
+    showToast("🎙️ Habla ahora con tu NexusPF AI-Agent...");
+    rec.onresult = (ev) => {
+      const txt = ev.results[0][0].transcript;
+      inputEl.value = txt;
+      window.sendAppAiChatMessage(txt);
+    };
+    rec.start();
+  } catch {
+    inputEl.focus();
+  }
+};
+
+// ============================================================================
+// 3. WHATSAPP AI-AGENT & 1-CLICK ON-SCREEN MODE SWITCHER (AUTO_REPLY ⇄ COPILOT)
+// ============================================================================
+state.whatsappAgent = {
+  mode: "AUTO_REPLY",
+  connectionStatus: "READY_FOR_QR_OR_WEBHOOK",
+  messagesProcessed: 0,
+  recentMessages: [],
+};
+
+function updateWhatsAppModeButtonsUI(waState) {
+  const isAuto = waState.mode === "AUTO_REPLY";
+  const headerBtn = document.getElementById("btn-wa-mode-header");
+  if (headerBtn) {
+    headerBtn.className = isAuto ? "btn btn-emerald" : "btn btn-gold";
+    headerBtn.innerHTML = isAuto
+      ? "🟢 WhatsApp IA: Auto-Respuesta Activa (1-Clic ⇄ Copiloto)"
+      : "🟡 WhatsApp IA: Modo Asistente Copiloto (1-Clic ⇄ Auto)";
+  }
+
+  const lpPill = document.getElementById("lp-live-wa-mode-pill");
+  if (lpPill) {
+    lpPill.className = isAuto ? "badge badge-renta" : "badge badge-venta";
+    lpPill.textContent = isAuto ? "💬 WhatsApp IA: AUTO-RESPUESTA" : "💬 WhatsApp IA: MODO COPILOTO";
+  }
+
+  const modalTitle = document.getElementById("wa-modal-mode-title");
+  const modalDesc = document.getElementById("wa-modal-mode-desc");
+  const modalSwitchBtn = document.getElementById("btn-wa-modal-switch");
+  if (modalTitle) {
+    modalTitle.innerHTML = isAuto
+      ? "🟢 Modo Actual: Auto-Respuesta IA Activa (AUTO_REPLY)"
+      : "🟡 Modo Actual: Asistente Copiloto con Aprobación 1-Clic (COPILOT_ASSIST)";
+  }
+  if (modalDesc) {
+    modalDesc.textContent = isAuto
+      ? "El Agente IA responde automáticamente al WhatsApp del cliente con el List Price oficial (Renta MRR vs Venta CapEx) y crea el Lead en PostgreSQL."
+      : "El Agente IA registra el Lead en PostgreSQL y deja el borrador cotizado listo en pantalla para que lo apruebes y envíes en 1 clic.";
+  }
+  if (modalSwitchBtn) {
+    modalSwitchBtn.innerHTML = isAuto
+      ? "🔄 Cambiar en 1 Clic a Modo Copiloto (🟡)"
+      : "🔄 Cambiar en 1 Clic a Auto-Respuesta IA (🟢)";
+  }
+
+  const connBadge = document.getElementById("wa-conn-status-badge");
+  if (connBadge) {
+    connBadge.textContent = waState.connectionStatus || "READY";
+  }
+
+  // Render messages feed inside WhatsApp modal
+  const feedEl = document.getElementById("wa-messages-feed");
+  if (feedEl) {
+    const msgs = waState.recentMessages || [];
+    if (msgs.length === 0) {
+      feedEl.innerHTML = `
+        <div style="padding:12px; border-radius:8px; background:var(--bg-surface); border:1px dashed var(--border-subtle); font-size:12px; color:var(--text-muted); text-align:center;">
+          Aún no hay mensajes en esta sesión. Usa el botón <strong>"📥 Procesar WhatsApp"</strong> arriba o vincula tu Google Pixel por QR para ver la respuesta automática con List Price.
+        </div>
+      `;
+    } else {
+      feedEl.innerHTML = msgs
+        .map((m) => {
+          const isSent = m.status === "AUTO_REPLIED" || m.status === "APPROVED_AND_SENT";
+          return `
+            <div style="padding:10px 12px; border-radius:10px; background:var(--bg-surface); border:1px solid ${
+              isSent ? "rgba(16,185,129,0.4)" : "rgba(245,158,11,0.45)"
+            }; font-size:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:4px;">
+                <strong>👤 ${m.senderName} (${m.fromPhone}) · ${m.companyName}</strong>
+                <span class="badge ${isSent ? "badge-renta" : "badge-venta"}" style="font-size:10px;">
+                  ${isSent ? "✓ ENVIADO POR WHATSAPP IA" : "⏳ BORRADOR COPILOTO PENDIENTE"}
+                </span>
+              </div>
+              <div style="color:var(--text-secondary); margin-bottom:6px;">
+                💬 <em>"${m.incomingText}"</em> → Deal <strong>#${m.dealId}</strong> (${m.productQuoted})
+              </div>
+              <div style="padding:8px; border-radius:8px; background:var(--bg-elevated); font-family:var(--font-mono); font-size:11px; color:var(--accent-emerald); white-space:pre-line; max-height:110px; overflow-y:auto;">${
+                m.aiReplyText
+              }</div>
+              ${
+                !isSent
+                  ? `<div style="margin-top:8px; display:flex; justify-content:flex-end;">
+                      <button class="btn btn-emerald" type="button" style="padding:5px 12px; font-size:11.5px;" onclick="approveWhatsAppDraft('${m.id}')">
+                        ✅ Aprobar y Enviar en 1 Clic por WhatsApp
+                      </button>
+                    </div>`
+                  : ""
+              }
+            </div>
+          `;
+        })
+        .join("");
+    }
+  }
+}
+
+window.loadWhatsAppAgentStatus = async function () {
+  try {
+    const res = await fetch("/api/whatsapp/status");
+    const data = await res.json();
+    if (data && data.ok) {
+      state.whatsappAgent = data;
+      updateWhatsAppModeButtonsUI(data);
+    }
+  } catch {}
+};
+
+window.toggleWhatsAppAiMode = async function () {
+  const nextMode = state.whatsappAgent?.mode === "AUTO_REPLY" ? "COPILOT_ASSIST" : "AUTO_REPLY";
+  try {
+    const res = await fetch("/api/whatsapp/mode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: nextMode }),
+    });
+    const data = await res.json();
+    if (data && data.ok) {
+      await window.loadWhatsAppAgentStatus();
+      showToast(
+        data.mode === "AUTO_REPLY"
+          ? "🟢 Interruptor WhatsApp IA: Modo AUTO-RESPUESTA ACTIVA habilitado en 1 clic."
+          : "🟡 Interruptor WhatsApp IA: Modo ASISTENTE COPILOTO habilitado en 1 clic."
+      );
+    }
+  } catch (err) {
+    showToast(`⚠️ Error cambiando modo de WhatsApp IA: ${err.message}`);
+  }
+};
+
+window.openWhatsAppAgentModal = async function () {
+  const modalEl = document.getElementById("whatsapp-agent-modal");
+  if (!modalEl) return;
+  modalEl.classList.add("open");
+  await window.loadWhatsAppAgentStatus();
+};
+
+window.generateWhatsAppQrCode = async function () {
+  const box = document.getElementById("wa-qr-container");
+  if (!box) return;
+  box.innerHTML = `<div style="font-size:12px; color:var(--accent-cyan);">⏳ Inicializando sesión Multi-Device y generando Código QR para tu Google Pixel...</div>`;
+  try {
+    const res = await fetch("/api/whatsapp/connect-qr", { method: "POST" });
+    const data = await res.json();
+    if (data && data.qrDataUrl) {
+      box.innerHTML = `
+        <img src="${data.qrDataUrl}" alt="WhatsApp QR Code" style="width:185px; height:185px; border-radius:10px; border:2px solid var(--accent-emerald); margin-bottom:8px;" />
+        <div style="font-family:var(--font-mono); font-size:11px; color:var(--accent-emerald); font-weight:700;">
+          ✓ Escanea desde tu Google Pixel (WhatsApp → Dispositivos vinculados)
+        </div>
+      `;
+      showToast("📱 Código QR de WhatsApp generado. Escanéalo con tu Google Pixel.");
+    } else {
+      box.innerHTML = `<div style="font-size:12px; color:var(--accent-emerald);">✅ Estado: ${data.connectionStatus || "Conectado"}</div>`;
+    }
+    await window.loadWhatsAppAgentStatus();
+  } catch (err) {
+    box.innerHTML = `<div style="font-size:12px; color:var(--accent-rose);">⚠️ Error generando QR: ${err.message}</div>`;
+  }
+};
+
+window.sendTestIncomingWhatsApp = async function () {
+  const senderName = (document.getElementById("wa-in-name")?.value || "Prospecto WhatsApp").trim();
+  const fromPhone = (document.getElementById("wa-in-phone")?.value || "+57 315 800 9911").trim();
+  const companyName = (document.getElementById("wa-in-company")?.value || "").trim();
+  const messageText = (document.getElementById("wa-in-text")?.value || "").trim();
+  if (!messageText) {
+    showToast("⚠️ Escribe el mensaje entrante de WhatsApp.");
+    return;
+  }
+
+  const res = await fetch("/api/whatsapp/incoming", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      senderName,
+      fromPhone,
+      companyName,
+      messageText,
+      ownerUserId: state.currentUser?.id || 2,
+      ownerName: state.currentUser?.name || "Camila Herrera",
+      ownerEmail: state.currentUser?.email || "camila@finanactionable.co",
+    }),
+  });
+  const data = await res.json();
+  if (res.ok && data.ok) {
+    await window.loadWhatsAppAgentStatus();
+    await loadDashboard();
+    showToast(
+      data.modeUsed === "AUTO_REPLY"
+        ? `🟢 WhatsApp IA respondió automáticamente con List Price y creó el Deal #${data.deal.id}.`
+        : `🟡 WhatsApp IA creó el Deal #${data.deal.id} y preparó borrador en Modo Copiloto.`
+    );
+  }
+};
+
+window.approveWhatsAppDraft = async function (messageId) {
+  const res = await fetch("/api/whatsapp/approve-draft", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messageId }),
+  });
+  const data = await res.json();
+  if (res.ok && data.ok) {
+    await window.loadWhatsAppAgentStatus();
+    showToast("✅ Borrador aprobado y respuesta enviada al WhatsApp del cliente.");
+  }
+};
+
+// ============================================================================
+// 4. GOOGLE PIXEL ANDROID APP CONNECTION SWITCHER (LOCAL WI-FI ⇄ RENDER CLOUD)
+// ============================================================================
+let deferredPwaPrompt = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPwaPrompt = e;
+});
+
+window.openPixelAppModal = function () {
+  const modalEl = document.getElementById("pixel-app-modal");
+  if (!modalEl) return;
+
+  const savedMode = localStorage.getItem("nexuspf_pixel_conn_mode") || "LOCAL_WIFI";
+  const savedWifi = localStorage.getItem("nexuspf_pixel_wifi_url") || `http://${window.location.hostname || "192.168.1.100"}:3400`;
+  const savedCloud = localStorage.getItem("nexuspf_pixel_cloud_url") || "https://nexuspf-web.onrender.com";
+
+  const wifiInput = document.getElementById("pixel-wifi-url");
+  const cloudInput = document.getElementById("pixel-cloud-url");
+  if (wifiInput) wifiInput.value = savedWifi;
+  if (cloudInput) cloudInput.value = savedCloud;
+
+  window.setPixelConnectionEndpoint(savedMode, true);
+  modalEl.classList.add("open");
+};
+
+window.savePixelConnectionUrls = function () {
+  const wifiVal = (document.getElementById("pixel-wifi-url")?.value || "").trim();
+  const cloudVal = (document.getElementById("pixel-cloud-url")?.value || "").trim();
+  if (wifiVal) localStorage.setItem("nexuspf_pixel_wifi_url", wifiVal);
+  if (cloudVal) localStorage.setItem("nexuspf_pixel_cloud_url", cloudVal);
+};
+
+window.setPixelConnectionEndpoint = function (mode, silent = false) {
+  const targetMode = mode === "RENDER_CLOUD" ? "RENDER_CLOUD" : "LOCAL_WIFI";
+  localStorage.setItem("nexuspf_pixel_conn_mode", targetMode);
+  window.savePixelConnectionUrls();
+
+  const lbl = document.getElementById("pixel-active-mode-label");
+  const btnWifi = document.getElementById("btn-pixel-wifi");
+  const btnCloud = document.getElementById("btn-pixel-cloud");
+
+  if (lbl) {
+    lbl.textContent =
+      targetMode === "LOCAL_WIFI"
+        ? `📶 Modo Activo: Red Local Wi-Fi (${document.getElementById("pixel-wifi-url")?.value || "LAN"})`
+        : `☁️ Modo Activo: Render Cloud Production (${document.getElementById("pixel-cloud-url")?.value || "Cloud"})`;
+  }
+  if (btnWifi) btnWifi.className = targetMode === "LOCAL_WIFI" ? "btn btn-emerald" : "btn";
+  if (btnCloud) btnCloud.className = targetMode === "RENDER_CLOUD" ? "btn btn-emerald" : "btn";
+
+  if (!silent) {
+    showToast(
+      targetMode === "LOCAL_WIFI"
+        ? "📶 Google Pixel configurado en Red Local Wi-Fi."
+        : "☁️ Google Pixel configurado en Render Cloud Production (acceso desde cualquier lugar)."
+    );
+  }
+};
+
+window.triggerPixelPwaInstall = async function () {
+  if (deferredPwaPrompt) {
+    deferredPwaPrompt.prompt();
+    await deferredPwaPrompt.userChoice;
+    deferredPwaPrompt = null;
+  } else {
+    showToast("📲 En Chrome de tu Google Pixel abre el menú (⋮) → 'Instalar aplicación' para anclar NexusPF al inicio.");
+  }
+};
+
+// Initialize on load:
+// - If already authenticated in sessionStorage OR inside Google Pixel native WebView, enter internal APP directly.
+// - Otherwise show the Public Professional Landing Page (with the Login button in the top-right corner).
 loadDashboard().then(() => {
-  if (!sessionStorage.getItem("nexuspf_gate_authenticated")) {
-    openLoginScreenGate("login");
+  if (sessionStorage.getItem("nexuspf_gate_authenticated") || window.NexusPixelBridge) {
+    window.enterInternalAppMode();
+  } else {
+    document.body.classList.add("landing-mode");
   }
 });

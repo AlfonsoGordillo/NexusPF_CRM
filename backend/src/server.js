@@ -1,6 +1,12 @@
 import express from "express";
 import cors from "cors";
 import pg from "pg";
+import {
+  whatsappAgentState,
+  processIncomingWhatsAppMessage,
+  startWhatsAppQrSession,
+  buildWhatsAppAiReply,
+} from "./whatsapp-agent.js";
 
 const { Pool } = pg;
 const app = express();
@@ -1525,6 +1531,323 @@ app.post("/api/deals/:id/fast-close", async (req, res) => {
     res.json({ ok: true, deal: closedDeal });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 2.6 WhatsApp AI-Agent Connection (Google Pixel QR Link + 1-Click Mode Toggle + Webhook)
+//     & Omnipresent In-App AI-Agent Chat Engine (/api/ai/agent-chat)
+// ---------------------------------------------------------------------------
+app.get("/api/whatsapp/status", (_req, res) => {
+  res.json({
+    ok: true,
+    mode: whatsappAgentState.mode,
+    connectionStatus: whatsappAgentState.connectionStatus,
+    connectedPhone: whatsappAgentState.connectedPhone,
+    connectedDeviceName: whatsappAgentState.connectedDeviceName,
+    qrDataUrl: whatsappAgentState.qrDataUrl,
+    lastQrGeneratedAt: whatsappAgentState.lastQrGeneratedAt,
+    recentMessages: whatsappAgentState.recentMessages,
+    pendingDrafts: whatsappAgentState.pendingDrafts,
+  });
+});
+
+// 1-Click Toggle between AUTO_REPLY (Auto-Respuesta IA Activa) & COPILOT_ASSIST (Modo Asistente / Copiloto)
+app.post("/api/whatsapp/mode", async (req, res) => {
+  try {
+    const requested = String(req.body?.mode || "").toUpperCase();
+    if (requested === "AUTO_REPLY" || requested === "COPILOT_ASSIST") {
+      whatsappAgentState.mode = requested;
+    } else {
+      whatsappAgentState.mode = whatsappAgentState.mode === "AUTO_REPLY" ? "COPILOT_ASSIST" : "AUTO_REPLY";
+    }
+
+    await pool.query(
+      `INSERT INTO activity_logs (event_type, summary, structured_payload)
+       VALUES ('WHATSAPP_AGENT_MODE_CHANGED', $1, $2)`,
+      [
+        `🤖 Modo del Agente IA de WhatsApp cambiado a: ${
+          whatsappAgentState.mode === "AUTO_REPLY"
+            ? "AUTO-RESPUESTA ACTIVA (Responde List Price + Crea Lead)"
+            : "COPILOTO ASISTENTE (Crea Lead + Sugiere Respuesta)"
+        }`,
+        JSON.stringify({ mode: whatsappAgentState.mode }),
+      ]
+    );
+
+    res.json({
+      ok: true,
+      mode: whatsappAgentState.mode,
+      label:
+        whatsappAgentState.mode === "AUTO_REPLY"
+          ? "Modo Auto-Respuesta IA Activa"
+          : "Modo Asistente / Copiloto (Aprobación 1-Clic)",
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Generate / Refresh QR Code for Google Pixel WhatsApp Multi-Device Pairing
+app.post("/api/whatsapp/connect-qr", async (_req, res) => {
+  try {
+    const st = await startWhatsAppQrSession(pool);
+    res.json({
+      ok: true,
+      mode: st.mode,
+      connectionStatus: st.connectionStatus,
+      qrDataUrl: st.qrDataUrl,
+      lastQrGeneratedAt: st.lastQrGeneratedAt,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Incoming WhatsApp Message Processor (Direct or Webhook)
+app.post("/api/whatsapp/incoming", async (req, res) => {
+  try {
+    const result = await processIncomingWhatsAppMessage(pool, req.body || {});
+    if (!result) {
+      return res.status(400).json({ error: "Mensaje de WhatsApp vacío." });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Approve & Send Copilot Draft in 1 Click
+app.post("/api/whatsapp/approve-draft", async (req, res) => {
+  try {
+    const msgId = Number(req.body?.id);
+    const customReply = req.body?.customReply;
+    const item =
+      whatsappAgentState.pendingDrafts.find((m) => Number(m.id) === msgId) ||
+      whatsappAgentState.recentMessages.find((m) => Number(m.id) === msgId);
+    if (!item) {
+      return res.status(404).json({ error: "Borrador no encontrado." });
+    }
+    if (customReply) item.aiReplyText = customReply;
+    item.autoReplied = true;
+    whatsappAgentState.pendingDrafts = whatsappAgentState.pendingDrafts.filter((m) => Number(m.id) !== msgId);
+
+    if (item.dealId) {
+      await pool.query(
+        `INSERT INTO deal_followups (deal_id, account_id, channel, action_type, note, next_action, next_followup_at, user_id, user_name)
+         VALUES ($1,$2,'WHATSAPP','WHATSAPP_COPILOT_SENT',$3,'Confirmar orden de compra',NOW() + INTERVAL '4 hours',2,'Camila Herrera')`,
+        [item.dealId, item.accountId, `Respuesta aprobada y enviada por WhatsApp: "${item.aiReplyText.slice(0, 180)}..."`]
+      );
+    }
+
+    res.json({ ok: true, item });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Meta WhatsApp Cloud API Verification & Webhook Compatibility
+app.get("/api/whatsapp/webhook", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const challenge = req.query["hub.challenge"];
+  if (mode === "subscribe" && challenge) {
+    return res.status(200).send(challenge);
+  }
+  res.status(200).json({ ok: true, service: "NexusPF WhatsApp AI Webhook Ready" });
+});
+
+app.post("/api/whatsapp/webhook", async (req, res) => {
+  try {
+    const entry = req.body?.entry?.[0]?.changes?.[0]?.value;
+    const msg = entry?.messages?.[0];
+    const contact = entry?.contacts?.[0];
+    if (msg && msg.text?.body) {
+      await processIncomingWhatsAppMessage(pool, {
+        from: "+" + String(msg.from || "").replace(/^\+/, ""),
+        senderName: contact?.profile?.name || "Contacto WhatsApp",
+        companyName: `${contact?.profile?.name || "Empresa"} B2B`,
+        text: msg.text.body,
+      });
+    }
+    res.status(200).json({ status: "EVENT_RECEIVED" });
+  } catch (err) {
+    res.status(200).json({ status: "HANDLED", detail: err.message });
+  }
+});
+
+// Omnipresent In-App AI-Agent Chat Engine (Available on all screens inside the APP)
+app.post("/api/ai/agent-chat", async (req, res) => {
+  try {
+    const {
+      message = "",
+      currentView = "leads",
+      userId = 1,
+      userName = "Alfonso Gordillo",
+      userRole = "SUPER_ADMIN",
+    } = req.body || {};
+
+    const cleanMsg = String(message || "").trim();
+    if (!cleanMsg) {
+      return res.status(400).json({ error: "Escribe o dicta una instrucción para el AI-Agent." });
+    }
+    const lower = cleanMsg.toLowerCase();
+
+    // Fetch live context from PostgreSQL
+    const [prodsRes, dealsRes, accsRes] = await Promise.all([
+      pool.query("SELECT * FROM digital_products ORDER BY id ASC"),
+      pool.query(
+        `SELECT d.*, a.company_name, a.contact_name, a.contact_phone, p.name AS product_name
+         FROM deals d
+         LEFT JOIN accounts a ON a.id = d.account_id
+         LEFT JOIN digital_products p ON p.id = d.product_id
+         ORDER BY d.id DESC`
+      ),
+      pool.query("SELECT * FROM accounts ORDER BY id DESC"),
+    ]);
+
+    const products = prodsRes.rows || [];
+    const deals = dealsRes.rows || [];
+    const accounts = accsRes.rows || [];
+
+    // 1. Intent: Switch WhatsApp Agent Mode from Chat
+    if (lower.includes("modo") && (lower.includes("whatsapp") || lower.includes("auto") || lower.includes("copiloto"))) {
+      const nextMode = lower.includes("copiloto") || lower.includes("asistente") ? "COPILOT_ASSIST" : "AUTO_REPLY";
+      whatsappAgentState.mode = nextMode;
+      return res.json({
+        ok: true,
+        actionExecuted: "WHATSAPP_MODE_CHANGED",
+        reply: `🤖 He cambiado el **Agente IA de WhatsApp** a **${
+          nextMode === "AUTO_REPLY"
+            ? "Modo Auto-Respuesta IA Activa (responde precios List Price y crea Leads automáticamente)"
+            : "Modo Asistente / Copiloto (crea el Lead y deja el borrador listo para tu aprobación en 1 clic)"
+        }**.`,
+      });
+    }
+
+    // 2. Intent: Fast-Close a Deal from Chat (e.g., "cierra ganado...", "cerrar trato...")
+    if (lower.includes("cierra") || lower.includes("cerrar ganado") || lower.includes("fast-close")) {
+      const openDeals = deals.filter((d) => d.stage !== "CERRADO_GANADO");
+      const targetDeal =
+        openDeals.find(
+          (d) =>
+            lower.includes((d.company_name || "").toLowerCase().split(" ")[0]) ||
+            lower.includes((d.title || "").toLowerCase().split(" ")[0])
+        ) || openDeals[0];
+
+      if (targetDeal) {
+        await pool.query(
+          `UPDATE deals
+           SET stage = 'CERRADO_GANADO',
+               probability = 100,
+               closed_at = NOW(),
+               followup_count = COALESCE(followup_count, 0) + 1,
+               last_followup_at = NOW(),
+               last_followup_note = $1,
+               last_changed_by = $2,
+               updated_at = NOW()
+           WHERE id = $3`,
+          [`Cerrado Ganado desde el AI-Agent Chat por ${userName}.`, userName, targetDeal.id]
+        );
+        return res.json({
+          ok: true,
+          actionExecuted: "DEAL_FAST_CLOSED",
+          refreshDashboard: true,
+          reply: `🏆 **¡Cierre Rápido Ejecutado!** La oportunidad **"${targetDeal.title}"** (${targetDeal.company_name}) pasó a **CERRADO_GANADO (100%)** en PostgreSQL (${
+            targetDeal.modality === "VENTA_CAPEX"
+              ? `Venta CapEx: $${Number(targetDeal.buyout_dynamic_usd).toLocaleString("en-US")} USD`
+              : `Renta MRR: $${Number(targetDeal.mrr_usd).toLocaleString("en-US")}/mes`
+          }).`,
+        });
+      }
+    }
+
+    // 3. Intent: Create a Lead / Opportunity directly from Chat
+    if (
+      lower.includes("crea un lead") ||
+      lower.includes("crear lead") ||
+      lower.includes("nuevo lead") ||
+      lower.includes("nueva oportunidad") ||
+      lower.includes("registra cliente")
+    ) {
+      const channel = lower.includes("android") || lower.includes("pixel")
+        ? "ANDROID_APP"
+        : lower.includes("web")
+        ? "WEB_PAGE"
+        : "WHATSAPP";
+
+      const extracted = extractZeroAdminEntities(cleanMsg);
+      const prod = products[0] || {
+        id: 1,
+        name: "FinActionable AI-CFO & Cashflow Intelligence",
+        brand: "finanactionable.co",
+        monthly_rent_mrr_usd: 950,
+        setup_fee_usd: 2500,
+        buyout_price_usd: 22000,
+      };
+      const result = await processIncomingWhatsAppMessage(pool, {
+        from: "+57 315 800 9900",
+        senderName: extracted.contactName || "Decisor B2B",
+        companyName: extracted.companyName || "Nuevo Cliente AI Chat",
+        text: cleanMsg,
+      });
+
+      return res.json({
+        ok: true,
+        actionExecuted: "LEAD_CREATED",
+        refreshDashboard: true,
+        reply: `🚀 **Lead Creado en PostgreSQL:**\n- **Empresa:** ${result.account.company_name}\n- **Contacto:** ${result.account.contact_name} (${result.account.contact_phone})\n- **Oportunidad:** ${result.deal.title}\n- **List Price Aplicado:** Renta $${Number(result.deal.mrr_usd).toLocaleString("en-US")}/mes | Venta $${Number(result.deal.buyout_dynamic_usd).toLocaleString("en-US")} USD.`,
+      });
+    }
+
+    // 4. Intent: Query Catalog & Official List Prices (Venta vs. Renta)
+    if (
+      lower.includes("precio") ||
+      lower.includes("list price") ||
+      lower.includes("catalogo") ||
+      lower.includes("catálogo") ||
+      lower.includes("renta") ||
+      lower.includes("venta") ||
+      lower.includes("cotiza")
+    ) {
+      const lines = products.map((p) => {
+        const mrr = Number(p.monthly_rent_mrr_usd || 950);
+        const setup = Number(p.setup_fee_usd || 2200);
+        const buyout = Number(p.buyout_price_usd || 21000);
+        const ltv24 = setup + mrr * 24;
+        return `• **${p.name}** (\`${p.code}\` · *${p.brand}*)\n  🟢 **Renta MRR:** $${mrr.toLocaleString("en-US")}/mes (+$${setup.toLocaleString("en-US")} Setup · LTV 24m: $${ltv24.toLocaleString("en-US")})\n  🟡 **Venta CapEx:** $${buyout.toLocaleString("en-US")} USD`;
+      });
+
+      return res.json({
+        ok: true,
+        actionExecuted: "CATALOG_LIST_PRICE_SHOWN",
+        reply: `🏷️ **Tarifario Oficial (List Price Book — Venta CapEx vs. Renta MRR):**\n\n${lines.join("\n\n")}\n\n💡 *Puedes pedirme: "Crea un lead para Empresa X con este producto" o ir a la pestaña Catálogo IP & List Price.*`,
+      });
+    }
+
+    // 5. Default Executive Pipeline & Role Summary
+    const openDeals = deals.filter((d) => d.stage !== "CERRADO_GANADO");
+    const wonDeals = deals.filter((d) => d.stage === "CERRADO_GANADO");
+    const totalMrr = openDeals.reduce((acc, d) => acc + Number(d.mrr_usd || 0), 0);
+    const hotTop = openDeals.slice(0, 3).map((d) => `• **${d.company_name}** (${d.stage} · ${d.probability}%) — 📞 ${d.contact_phone || "+57"}`);
+
+    res.json({
+      ok: true,
+      actionExecuted: "PIPELINE_SUMMARY",
+      reply: [
+        `Hola **${userName}** (\`${userRole}\`), estoy activo en tu vista **${currentView.toUpperCase()}**.`,
+        `📊 **Estado en Vivo (PostgreSQL 16):**`,
+        `- **Clientes B2B:** ${accounts.length} registrados`,
+        `- **Oportunidades Abiertas:** ${openDeals.length} (MRR en juego: **$${totalMrr.toLocaleString("en-US")}/mes** | **${wonDeals.length} Cerradas Ganadas**)`,
+        `- **Agente IA WhatsApp:** \`${whatsappAgentState.mode === "AUTO_REPLY" ? "🟢 AUTO-RESPUESTA ACTIVA" : "🟡 MODO COPILOTO"}\``,
+        ``,
+        `🔥 **Próximos Cierres Prioritarios:**`,
+        ...hotTop,
+        ``,
+        `💬 *Pídeme: "Muéstrame el List Price del catálogo", "Crea un lead para Grupo Argos con Juan Pérez", o "Cierra ganado el trato de ${openDeals[0]?.company_name || "cliente"}".*`,
+      ].join("\n"),
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 

@@ -1,0 +1,24 @@
+{
+  "name": "NexusPF CRM — AI Revenue & Sales Manager Cockpit",
+  "short_name": "NexusPF CRM",
+  "description": "Cockpit B2B Multicanal (Web, Google Pixel Android App & WhatsApp AI Agent) para projectsfactory.io y finanactionable.co",
+  "start_url": "/?device=mobile&source=ANDROID_APP",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#05080f",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%2305080f'/%3E%3Crect x='12' y='12' width='168' height='168' rx='34' fill='none' stroke='%2310b981' stroke-width='6'/%3E%3Ctext x='96' y='118' font-family='monospace' font-size='72' font-weight='bold' fill='%2310b981' text-anchor='middle'%3ENX%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='110' fill='%2305080f'/%3E%3Crect x='28' y='28' width='456' height='456' rx='90' fill='none' stroke='%2310b981' stroke-width='14'/%3E%3Ctext x='256' y='315' font-family='monospace' font-size='196' font-weight='bold' fill='%2310b981' text-anchor='middle'%3ENX%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
