@@ -87,10 +87,10 @@ export async function buildWhatsAppAiReply(pool, incomingText, senderName = "Cli
  * and either sends the reply automatically (`AUTO_REPLY`) or stores a 1-click Copilot draft (`COPILOT_ASSIST`).
  */
 export async function processIncomingWhatsAppMessage(pool, payload) {
-  const senderPhone = String(payload.from || payload.phone || "+57 314 890 1122").trim();
+  const senderPhone = String(payload.fromPhone || payload.from || payload.phone || "+57 314 890 1122").trim();
   const senderName = String(payload.senderName || payload.pushName || "Prospecto WhatsApp").trim();
   const companyName = String(payload.companyName || `${senderName} Corp`).trim();
-  const text = String(payload.text || payload.message || "").trim();
+  const text = String(payload.messageText || payload.text || payload.message || "").trim();
   if (!text) return null;
 
   const aiPlan = await buildWhatsAppAiReply(pool, text, senderName, senderPhone);
@@ -175,17 +175,23 @@ export async function processIncomingWhatsAppMessage(pool, payload) {
   } else {
     const dIns = await pool.query(
       `INSERT INTO deals
-        (account_id, product_id, owner_user_id, title, stage, modality, probability, mrr_usd, setup_fee_usd, buyout_base_usd, buyout_dynamic_usd, infra_cost_monthly_usd, custom_dev_hours, breakeven_months, ltv_24m_usd, gross_margin_pct, next_action, last_changed_by, last_changed_email, last_changed_role, last_stage_change_at, last_justification, source_channel, contact_phone, lead_temperature, followup_count, last_followup_at, next_followup_at, last_followup_note)
-       VALUES ($1,$2,2,$3,'DISCOVERY',$4,75,$5,$6,$7,$7,70,20,$8,$9,92,$10,'Camila Herrera','camila@finanactionable.co','Sales Manager B2B',NOW(),$11,'WHATSAPP',$12,'HOT',1,NOW(),NOW() + INTERVAL '1 hour',$11)
+        (title, account_id, product_id, responsible_user_id, brand, modality, stage, probability,
+         buyout_dynamic_usd, setup_fee_usd, mrr_usd, contract_months, infra_cost_monthly_usd,
+         cac_estimated_usd, breakeven_months, ltv_24m_usd, gross_margin_pct,
+         next_action, source_channel, owner_name, last_changed_by, last_changed_role,
+         last_stage_change_at, last_justification, contact_phone, lead_temperature,
+         followup_count, last_followup_at, next_followup_at, last_followup_note)
+       VALUES ($1,$2,$3,2,$4,$5,'DISCOVERY',75,$6,$7,$8,24,70,850,$9,$10,92,$11,'WHATSAPP','Camila Herrera','Camila Herrera','Sales Manager B2B',NOW(),$12,$13,'HOT',1,NOW(),NOW() + INTERVAL '1 hour',$12)
        RETURNING *`,
       [
+        `${prod.name} — ${companyName}`,
         accountRow.id,
         prod.id,
-        `${prod.name} — ${companyName}`,
+        prod.brand || "finanactionable.co",
         aiPlan.detectedModality,
-        aiPlan.mrr,
-        aiPlan.setup,
         aiPlan.buyout,
+        aiPlan.setup,
+        aiPlan.mrr,
         Number(aiPlan.breakeven),
         aiPlan.ltv24,
         `Confirmar propuesta enviada por Agente IA de WhatsApp a ${senderName} (${senderPhone})`,
@@ -227,19 +233,23 @@ export async function processIncomingWhatsAppMessage(pool, payload) {
     }
   }
 
+  const isAuto = whatsappAgentState.mode === "AUTO_REPLY";
   const msgRecord = {
     id: Date.now(),
     timestamp: new Date().toISOString(),
     senderPhone,
+    fromPhone: senderPhone,
     senderName,
     companyName,
     incomingText: text,
     aiReplyText: aiPlan.replyText,
     productName: prod.name,
+    productQuoted: `${prod.name} (${prod.code})`,
     listPriceRent: `$${aiPlan.mrr}/mes (+$${aiPlan.setup} Setup)`,
     listPriceBuyout: `$${aiPlan.buyout} USD`,
     modeUsed: whatsappAgentState.mode,
-    autoReplied: whatsappAgentState.mode === "AUTO_REPLY",
+    status: isAuto ? "AUTO_REPLIED" : "COPILOT_DRAFT",
+    autoReplied: isAuto,
     sentOverSocket,
     dealId: dealRow.id,
     accountId: accountRow.id,
@@ -248,7 +258,7 @@ export async function processIncomingWhatsAppMessage(pool, payload) {
   whatsappAgentState.recentMessages.unshift(msgRecord);
   whatsappAgentState.recentMessages = whatsappAgentState.recentMessages.slice(0, 25);
 
-  if (whatsappAgentState.mode === "COPILOT_ASSIST") {
+  if (!isAuto) {
     whatsappAgentState.pendingDrafts.unshift(msgRecord);
     whatsappAgentState.pendingDrafts = whatsappAgentState.pendingDrafts.slice(0, 15);
   }
@@ -256,6 +266,7 @@ export async function processIncomingWhatsAppMessage(pool, payload) {
   return {
     ok: true,
     mode: whatsappAgentState.mode,
+    modeUsed: whatsappAgentState.mode,
     messageRecord: msgRecord,
     account: accountRow,
     deal: dealRow,

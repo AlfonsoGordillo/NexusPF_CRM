@@ -1065,7 +1065,7 @@ app.get("/api/dashboard", async (req, res) => {
 app.post("/api/leads/multichannel", async (req, res) => {
   try {
     const b = req.body || {};
-    const channel = b.sourceChannel || b.channel || "WHATSAPP";
+    const channel = b.sourceChannel || b.source_channel || b.channel || "WHATSAPP";
     const company_name = b.companyName || b.company_name || "";
     const contact_name = b.contactName || b.contact_name || "";
     const contact_role = b.contactRole || b.contact_role || "Director / Decisor Clave";
@@ -1620,7 +1620,7 @@ app.post("/api/whatsapp/incoming", async (req, res) => {
 // Approve & Send Copilot Draft in 1 Click
 app.post("/api/whatsapp/approve-draft", async (req, res) => {
   try {
-    const msgId = Number(req.body?.id);
+    const msgId = Number(req.body?.messageId || req.body?.id);
     const customReply = req.body?.customReply;
     const item =
       whatsappAgentState.pendingDrafts.find((m) => Number(m.id) === msgId) ||
@@ -1630,6 +1630,7 @@ app.post("/api/whatsapp/approve-draft", async (req, res) => {
     }
     if (customReply) item.aiReplyText = customReply;
     item.autoReplied = true;
+    item.status = "APPROVED_AND_SENT";
     whatsappAgentState.pendingDrafts = whatsappAgentState.pendingDrafts.filter((m) => Number(m.id) !== msgId);
 
     if (item.dealId) {
